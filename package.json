@@ -1,0 +1,36 @@
+{
+  "name": "roti-factory-erp",
+  "version": "1.0.0",
+  "description": "Comprehensive ERP system for Roti Factory with Manufacturing, Franchise, and Counter Management",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "server:dev": "cd server && npm run dev",
+    "client:dev": "cd client && npm run dev",
+    "build": "npm run client:build && npm run server:build",
+    "client:build": "cd client && npm run build",
+    "server:build": "cd server && npm run db:generate",
+    "start": "cd server && npm start",
+    "setup": "npm install && cd server && npm install && cd ../client && npm install",
+    "db:generate": "cd server && npx prisma generate",
+    "db:migrate": "cd server && npx prisma migrate dev",
+    "db:seed": "cd server && npx prisma db seed",
+    "db:studio": "cd server && npx prisma studio",
+    "vercel-build": "npm run client:build"
+  },
+  "keywords": [
+    "erp",
+    "roti-factory",
+    "manufacturing",
+    "franchise",
+    "pos"
+  ],
+  "author": "Roti Factory ERP Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "animejs": "^4.0.2"
+  }
+}
