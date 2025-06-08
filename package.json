@@ -16,7 +16,7 @@
     "db:migrate": "cd server && npx prisma migrate dev",
     "db:seed": "cd server && npx prisma db seed",
     "db:studio": "cd server && npx prisma studio",
-    "vercel-build": "npm run client:build"
+    "vercel-build": "cd client && npm install && npm run build"
   },
   "keywords": [
     "erp",

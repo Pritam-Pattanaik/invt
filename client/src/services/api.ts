@@ -1,7 +1,7 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
 // Create axios instance
 const api = axios.create({
@@ -457,7 +457,7 @@ export const settingsAPI = {
 export const dashboardAPI = {
   getDashboard: () => api.get('/reports/dashboard'),
 
-  getDatabaseStatus: () => axios.get('http://localhost:3001/db-status'),
+  getDatabaseStatus: () => api.get('/db-status'),
 
   getOverview: () => api.get('/reports/overview'),
 };

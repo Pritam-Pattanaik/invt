@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "client/dist",
+  "installCommand": "npm run setup",
+  "functions": {
+    "server/src/index.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/server/src/index.js"
+    },
+    {
+      "source": "/health",
+      "destination": "/server/src/index.js"
+    },
+    {
+      "source": "/db-status",
+      "destination": "/server/src/index.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
