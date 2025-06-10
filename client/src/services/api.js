@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
 // Get auth token from localStorage
 const getAuthToken = () => {
@@ -46,7 +46,8 @@ export const dashboardAPI = {
 
   // Get database status (public endpoint)
   getDatabaseStatus: async () => {
-    const response = await fetch('http://localhost:3001/db-status');
+    const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3001');
+    const response = await fetch(`${baseUrl}/db-status`);
     if (!response.ok) {
       throw new Error('Failed to fetch database status');
     }

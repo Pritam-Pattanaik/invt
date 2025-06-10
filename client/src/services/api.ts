@@ -9,7 +9,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 second timeout
+  timeout: 30000, // 30 second timeout for mobile networks
+  withCredentials: false, // Disable credentials for mobile compatibility
 });
 
 // Request interceptor to add auth token
@@ -36,7 +37,13 @@ api.interceptors.response.use(
 
     // Handle network errors gracefully
     if (!error.response) {
-      // Network error - handled silently
+      // Network error - show user-friendly message for mobile
+      console.error('Network error:', error.message);
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        toast.error('Request timeout. Please check your connection and try again.');
+      } else {
+        toast.error('Unable to connect to server. Please check your internet connection.');
+      }
       return Promise.reject(error);
     }
 
