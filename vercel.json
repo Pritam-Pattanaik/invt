@@ -4,22 +4,23 @@
   "outputDirectory": "client/dist",
   "installCommand": "npm run setup",
   "functions": {
-    "server/src/index.js": {
-      "maxDuration": 30
+    "api/index.js": {
+      "maxDuration": 30,
+      "memory": 1024
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/server/src/index.js"
+      "destination": "/api/index.js"
     },
     {
       "source": "/health",
-      "destination": "/server/src/index.js"
+      "destination": "/api/index.js"
     },
     {
       "source": "/db-status",
-      "destination": "/server/src/index.js"
+      "destination": "/api/index.js"
     }
   ],
   "env": {
