@@ -88,56 +88,24 @@ const Sales: React.FC = () => {
     queryKey: ['orders', 'today-delivery'],
     queryFn: async () => {
       try {
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split('T')[0];
+        console.log('Fetching orders...');
 
-        // Fetch all orders first, then filter on frontend for reliability
+        // Fetch ALL orders first, then filter on frontend for reliability
         const response = await salesAPI.getOrders({
           limit: 100 // Get more orders to ensure we have all data
         });
 
         const allOrders = response.data || [];
+        console.log('All orders from API:', allOrders.length, allOrders);
 
-        // Apply strict frontend filtering for today's delivery date
-        return allOrders.filter((order: any) => {
-          if (!order.deliveryDate) return false;
-
-          // Normalize the delivery date to YYYY-MM-DD format
-          let orderDeliveryDate = '';
-          if (typeof order.deliveryDate === 'string') {
-            // Handle various date formats
-            if (order.deliveryDate.includes('T')) {
-              orderDeliveryDate = order.deliveryDate.split('T')[0];
-            } else if (order.deliveryDate.includes('/')) {
-              // Handle DD/MM/YYYY or MM/DD/YYYY format
-              const parts = order.deliveryDate.split('/');
-              if (parts.length === 3) {
-                // Assume DD/MM/YYYY format based on your image
-                const day = parts[0].padStart(2, '0');
-                const month = parts[1].padStart(2, '0');
-                const year = parts[2];
-                orderDeliveryDate = `${year}-${month}-${day}`;
-              }
-            } else {
-              orderDeliveryDate = order.deliveryDate;
-            }
-          } else {
-            // Handle Date object
-            orderDeliveryDate = new Date(order.deliveryDate).toISOString().split('T')[0];
-          }
-
-          if (import.meta.env.DEV) {
-            console.log(`Comparing order ${order.id}: deliveryDate="${orderDeliveryDate}" with today="${today}"`);
-          }
-          return orderDeliveryDate === today;
-        });
+        // Return all orders for now, filtering will be done in useMemo
+        return allOrders;
       } catch (error) {
+        console.error('Orders API error:', error);
         // Orders API not available, using mock data
-        const today = new Date().toISOString().split('T')[0];
-        return getMockOrders().filter((order: Order) => {
-          const orderDeliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : '';
-          return orderDeliveryDate === today;
-        });
+        const mockData = getMockOrders();
+        console.log('Using mock orders data:', mockData.length);
+        return mockData;
       }
     },
     enabled: !!localStorage.getItem('accessToken'), // Only run if authenticated
@@ -179,24 +147,23 @@ const Sales: React.FC = () => {
     queryKey: ['posTransactions'],
     queryFn: async () => {
       try {
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split('T')[0];
+        console.log('Fetching POS transactions...');
 
-        // Fetch POS transactions for today
+        // Fetch ALL POS transactions first, then filter on frontend
         const response = await salesAPI.getPOSTransactions({
-          date: today
-        } as any);
-        return response.data || [];
-      } catch (error) {
-        // POS API not available, using mock data filtered by today
-        const mockData = getMockPOS();
-        const today = new Date().toISOString().split('T')[0];
-        return mockData.filter((transaction: POSTransaction) => {
-          const transactionDate = transaction.transactionDate ? transaction.transactionDate.split('T')[0] :
-                                 transaction.createdAt ? new Date(transaction.createdAt).toISOString().split('T')[0] :
-                                 today;
-          return transactionDate === today;
+          limit: 100 // Get more records
         });
+
+        const allTransactions = response.data || [];
+        console.log('All POS transactions from API:', allTransactions.length, allTransactions);
+
+        return allTransactions;
+      } catch (error) {
+        console.error('POS API error:', error);
+        // POS API not available, using mock data
+        const mockData = getMockPOS();
+        console.log('Using mock POS data:', mockData.length);
+        return mockData;
       }
     },
     enabled: !!localStorage.getItem('accessToken'), // Only run if authenticated

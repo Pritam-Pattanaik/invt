@@ -65,7 +65,7 @@ router.get('/orders', [
 ], handleValidationErrors, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 50; // Increased default limit
     const skip = (page - 1) * limit;
     
     const where = {};
@@ -111,6 +111,10 @@ router.get('/orders', [
       }),
       prisma.order.count({ where })
     ]);
+
+    console.log(`Orders API: Found ${total} total orders, returning ${orders.length} orders`);
+    console.log('Orders API: Where clause:', JSON.stringify(where, null, 2));
+    console.log('Orders API: Query params:', { page, limit, skip, startDate: req.query.startDate, endDate: req.query.endDate, deliveryDate: req.query.deliveryDate });
 
     res.json({
       message: 'Orders retrieved successfully',
@@ -386,7 +390,7 @@ router.get('/pos', [
 ], handleValidationErrors, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 50; // Increased default limit for POS
     const skip = (page - 1) * limit;
 
     const where = {};
@@ -422,6 +426,10 @@ router.get('/pos', [
       }),
       prisma.pOSTransaction.count({ where })
     ]);
+
+    console.log(`POS API: Found ${total} total transactions, returning ${transactions.length} transactions`);
+    console.log('POS API: Where clause:', JSON.stringify(where, null, 2));
+    console.log('POS API: Query params:', { page, limit, skip, startDate: req.query.startDate, endDate: req.query.endDate, date: req.query.date });
 
     res.json({
       message: 'POS transactions retrieved successfully',

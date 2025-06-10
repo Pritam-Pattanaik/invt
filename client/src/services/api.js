@@ -201,8 +201,9 @@ export const ordersAPI = {
 // Sales API
 export const salesAPI = {
   // Orders
-  getOrders: async () => {
-    return apiRequest('/sales/orders');
+  getOrders: async (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    return apiRequest(`/sales/orders${queryParams ? `?${queryParams}` : ''}`);
   },
 
   createOrder: async (orderData) => {
@@ -226,8 +227,9 @@ export const salesAPI = {
   },
 
   // Point of Sale (POS)
-  getPOSTransactions: async () => {
-    return apiRequest('/sales/pos');
+  getPOSTransactions: async (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    return apiRequest(`/sales/pos${queryParams ? `?${queryParams}` : ''}`);
   },
 
   createPOSTransaction: async (transactionData) => {
