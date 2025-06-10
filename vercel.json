@@ -21,6 +21,10 @@
     {
       "source": "/db-status",
       "destination": "/api/index.js"
+    },
+    {
+      "source": "/mobile-test",
+      "destination": "/api/index.js"
     }
   ],
   "env": {

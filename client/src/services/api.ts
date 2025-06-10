@@ -1,7 +1,11 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { getApiBaseUrl, debugApiConfig } from '../config/api';
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+const API_URL = getApiBaseUrl();
+
+// Debug API configuration on load
+debugApiConfig();
 
 // Create axios instance
 const api = axios.create({

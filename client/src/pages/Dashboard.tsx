@@ -29,11 +29,20 @@ const Dashboard: React.FC = () => {
     queryKey: ['dashboard'],
     queryFn: async () => {
       try {
+        console.log('Dashboard: Attempting to fetch dashboard data...');
         const response = await reportsAPI.getDashboard();
+        console.log('Dashboard: API response received:', response);
         return response;
       } catch (error: any) {
+        console.error('Dashboard: API error:', error);
+        console.log('Dashboard: Error details:', {
+          status: error.response?.status,
+          message: error.message,
+          hasResponse: !!error.response
+        });
         // If API fails, return null to use fallback data
         if (error.response?.status === 401 || error.response?.status === 404 || !error.response) {
+          console.log('Dashboard: Using fallback data due to API error');
           return null;
         }
         throw error;

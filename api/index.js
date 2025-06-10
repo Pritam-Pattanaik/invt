@@ -79,11 +79,28 @@ app.options('*', (req, res) => {
 
 // Health check endpoints
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'Roti Factory ERP Server is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    userAgent: req.get('User-Agent'),
+    origin: req.get('Origin'),
+    host: req.get('Host')
+  });
+});
+
+// Mobile-specific test endpoint
+app.get('/mobile-test', (req, res) => {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(req.get('User-Agent') || '');
+  res.json({
+    status: 'OK',
+    message: 'Mobile connectivity test successful',
+    isMobile,
+    userAgent: req.get('User-Agent'),
+    origin: req.get('Origin'),
+    host: req.get('Host'),
+    timestamp: new Date().toISOString()
   });
 });
 
