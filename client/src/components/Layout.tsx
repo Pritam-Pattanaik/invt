@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   HomeIcon,
@@ -14,40 +14,60 @@ import {
   UserCircleIcon,
 } from '@heroicons/react/24/outline';
 
-const Layout: React.FC = () => {
-  const { user, logout, hasMinRole } = useAuth();
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: location.pathname === '/dashboard' },
     {
+      name: 'Sales & Orders',
+      href: '/sales',
+      icon: ChartBarIcon,
+      current: location.pathname.startsWith('/sales'),
+    },
+    {
       name: 'Manufacturing',
       href: '/manufacturing',
       icon: CogIcon,
       current: location.pathname.startsWith('/manufacturing'),
-      requiredRole: 'MANAGER',
     },
     {
       name: 'Franchises',
       href: '/franchises',
       icon: BuildingStorefrontIcon,
       current: location.pathname.startsWith('/franchises'),
-      requiredRole: 'MANAGER',
     },
     {
       name: 'Counters',
       href: '/counters',
       icon: ComputerDesktopIcon,
       current: location.pathname.startsWith('/counters'),
-      requiredRole: 'COUNTER_OPERATOR',
+    },
+    {
+      name: 'Finance',
+      href: '/finance',
+      icon: ChartBarIcon,
+      current: location.pathname.startsWith('/finance'),
+    },
+    {
+      name: 'Human Resources',
+      href: '/hr',
+      icon: UsersIcon,
+      current: location.pathname.startsWith('/hr'),
     },
     {
       name: 'Reports',
       href: '/reports',
       icon: ChartBarIcon,
       current: location.pathname.startsWith('/reports'),
-      requiredRole: 'MANAGER',
+    },
+    {
+      name: 'Settings',
+      href: '/settings',
+      icon: CogIcon,
+      current: location.pathname.startsWith('/settings'),
     },
     {
       name: 'Users',
@@ -56,11 +76,7 @@ const Layout: React.FC = () => {
       current: location.pathname.startsWith('/users'),
       requiredRole: 'ADMIN',
     },
-  ].filter(item => !item.requiredRole || hasMinRole(item.requiredRole));
-
-  const handleLogout = () => {
-    logout();
-  };
+  ];
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100">
@@ -76,14 +92,14 @@ const Layout: React.FC = () => {
               <XMarkIcon className="h-6 w-6 text-white" />
             </button>
           </div>
-          <SidebarContent navigation={navigation} user={user} onLogout={handleLogout} />
+          <SidebarContent navigation={navigation} user={user} onLogout={logout} />
         </div>
       </div>
 
       {/* Desktop sidebar */}
       <div className="hidden md:flex md:flex-shrink-0">
         <div className="flex flex-col w-64">
-          <SidebarContent navigation={navigation} user={user} onLogout={handleLogout} />
+          <SidebarContent navigation={navigation} user={user} onLogout={logout} />
         </div>
       </div>
 
@@ -126,7 +142,7 @@ const Layout: React.FC = () => {
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-              <Outlet />
+              {children}
             </div>
           </div>
         </main>

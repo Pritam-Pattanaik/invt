@@ -2,7 +2,7 @@ const API_BASE_URL = 'http://localhost:3001/api';
 
 // Get auth token from localStorage
 const getAuthToken = () => {
-  return localStorage.getItem('authToken');
+  return localStorage.getItem('accessToken') || localStorage.getItem('authToken');
 };
 
 // Create headers with auth token
@@ -120,6 +120,19 @@ export const manufacturingAPI = {
     });
   },
 
+  updateProduct: async (id, productData) => {
+    return apiRequest(`/manufacturing/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(productData),
+    });
+  },
+
+  deleteProduct: async (id) => {
+    return apiRequest(`/manufacturing/products/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
   getInventory: async () => {
     return apiRequest('/manufacturing/inventory');
   },
@@ -179,6 +192,75 @@ export const ordersAPI = {
       method: 'PUT',
       body: JSON.stringify({ status }),
     });
+  },
+};
+
+// Sales API
+export const salesAPI = {
+  // Orders
+  getOrders: async () => {
+    return apiRequest('/sales/orders');
+  },
+
+  createOrder: async (orderData) => {
+    return apiRequest('/sales/orders', {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    });
+  },
+
+  updateOrder: async (id, orderData) => {
+    return apiRequest(`/sales/orders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(orderData),
+    });
+  },
+
+  deleteOrder: async (id) => {
+    return apiRequest(`/sales/orders/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Point of Sale (POS)
+  getPOSTransactions: async () => {
+    return apiRequest('/sales/pos');
+  },
+
+  createPOSTransaction: async (transactionData) => {
+    return apiRequest('/sales/pos', {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
+  },
+
+  updatePOSTransaction: async (id, transactionData) => {
+    return apiRequest(`/sales/pos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(transactionData),
+    });
+  },
+
+  deletePOSTransaction: async (id) => {
+    return apiRequest(`/sales/pos/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Products
+  getProducts: async () => {
+    return apiRequest('/sales/products');
+  },
+
+  // Sales Reports
+  getSalesReport: async (filters = {}) => {
+    const queryParams = new URLSearchParams(filters).toString();
+    return apiRequest(`/sales/reports${queryParams ? `?${queryParams}` : ''}`);
+  },
+
+  // Sales Analytics
+  getSalesAnalytics: async (period = 'today') => {
+    return apiRequest(`/sales/analytics?period=${period}`);
   },
 };
 
@@ -391,6 +473,9 @@ export const handleAPIError = (error) => {
   if (error.message.includes('401') || error.message.includes('Unauthorized')) {
     // Token expired or invalid
     localStorage.removeItem('authToken');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     window.location.href = '/login';
     return;
   }
@@ -406,6 +491,7 @@ export default {
   manufacturingAPI,
   franchisesAPI,
   ordersAPI,
+  salesAPI,
   reportsAPI,
   countersAPI,
   financeAPI,

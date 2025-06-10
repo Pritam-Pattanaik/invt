@@ -143,6 +143,119 @@ router.post('/products', requireMinRole('MANAGER'), [
   }
 });
 
+// Update product
+router.put('/products/:id', requireMinRole('MANAGER'), [
+  body('name').optional().trim().isLength({ min: 1 }),
+  body('description').optional().trim(),
+  body('category').optional().trim().isLength({ min: 1 }),
+  body('unitPrice').optional().isDecimal({ decimal_digits: '0,2' }),
+  body('costPrice').optional().isDecimal({ decimal_digits: '0,2' }),
+  body('unit').optional().trim().isLength({ min: 1 }),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Validation error',
+        details: errors.array(),
+      });
+    }
+
+    const { id } = req.params;
+    const updateData = {};
+
+    // Only include fields that are provided
+    if (req.body.name) updateData.name = req.body.name;
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.category) updateData.category = req.body.category;
+    if (req.body.unitPrice) updateData.unitPrice = parseFloat(req.body.unitPrice);
+    if (req.body.costPrice) updateData.costPrice = parseFloat(req.body.costPrice);
+    if (req.body.unit) updateData.unit = req.body.unit;
+
+    const product = await prisma.product.update({
+      where: { id },
+      data: updateData,
+      include: {
+        inventoryItems: {
+          select: {
+            currentStock: true,
+            availableStock: true,
+            reorderPoint: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      message: 'Product updated successfully',
+      data: product,
+    });
+  } catch (error) {
+    console.error('Update product error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        error: 'Product not found',
+      });
+    }
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to update product',
+    });
+  }
+});
+
+// Delete product
+router.delete('/products/:id', requireMinRole('MANAGER'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if product exists and has any dependencies
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        orderItems: true,
+        recipes: true,
+        productionBatches: true,
+      },
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        error: 'Product not found',
+      });
+    }
+
+    // Check if product has any dependencies
+    if (product.orderItems.length > 0 || product.recipes.length > 0 || product.productionBatches.length > 0) {
+      // Soft delete - mark as inactive instead of hard delete
+      const updatedProduct = await prisma.product.update({
+        where: { id },
+        data: { isActive: false },
+      });
+
+      return res.json({
+        message: 'Product deactivated successfully (has existing dependencies)',
+        data: updatedProduct,
+      });
+    }
+
+    // Hard delete if no dependencies
+    await prisma.product.delete({
+      where: { id },
+    });
+
+    res.json({
+      message: 'Product deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete product error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to delete product',
+    });
+  }
+});
+
 // Raw Materials Routes
 
 // Get all raw materials

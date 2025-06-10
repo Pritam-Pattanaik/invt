@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 export interface User {
@@ -9,8 +8,7 @@ export interface User {
   lastName: string;
   phone?: string;
   role: 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'FRANCHISE_MANAGER' | 'COUNTER_OPERATOR';
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-  lastLogin?: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,67 +16,80 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  hasRole: (roles: string | string[]) => boolean;
-  hasMinRole: (minRole: string) => boolean;
+  checkAuthState: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const roleHierarchy = {
-  SUPER_ADMIN: 5,
-  ADMIN: 4,
-  MANAGER: 3,
-  FRANCHISE_MANAGER: 2,
-  COUNTER_OPERATOR: 1,
-};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const initAuth = async () => {
-      const token = localStorage.getItem('accessToken');
-      const storedUser = localStorage.getItem('user');
+    const checkAuth = () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const userData = localStorage.getItem('user');
 
-      if (token && storedUser) {
-        try {
-          setUser(JSON.parse(storedUser));
-          // Verify token is still valid
-          const response = await authAPI.getProfile();
-          setUser(response.data.user);
-        } catch (error) {
-          // Token is invalid, clear storage
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
+        if (token && userData) {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
+        } else {
+          // If either token or user data is missing, clear everything
           setUser(null);
+          if (!token || !userData) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('authToken'); // Remove old key for backward compatibility
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+          }
         }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        setUser(null);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('authToken'); // Remove old key for backward compatibility
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
-    initAuth();
+    checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<void> => {
     try {
       setIsLoading(true);
-      const response = await authAPI.login({ email, password });
-      const { user: userData, accessToken, refreshToken } = response.data;
+      // Use real API endpoint
+      const response = await fetch('http://localhost:3001/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      const data = await response.json();
 
-      setUser(userData);
-      toast.success(`Welcome back, ${userData.firstName}!`);
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Login failed';
-      toast.error(message);
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      // Store tokens and user data
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // Update user state
+      setUser(data.user);
+      toast.success('Login successful!');
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error(error instanceof Error ? error.message : 'Invalid email or password');
       throw error;
     } finally {
       setIsLoading(false);
@@ -86,43 +97,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    setUser(null);
-    toast.success('Logged out successfully');
+    try {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('authToken'); // Remove old key for backward compatibility
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      setUser(null);
+      toast.success('Logged out successfully');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Error during logout');
+    }
   };
 
-  const hasRole = (roles: string | string[]): boolean => {
-    if (!user) return false;
-    const allowedRoles = Array.isArray(roles) ? roles : [roles];
-    return allowedRoles.includes(user.role);
-  };
+  const checkAuthState = () => {
+    const token = localStorage.getItem('accessToken');
+    const userData = localStorage.getItem('user');
 
-  const hasMinRole = (minRole: string): boolean => {
-    if (!user) return false;
-    const userRoleLevel = roleHierarchy[user.role] || 0;
-    const minRoleLevel = roleHierarchy[minRole as keyof typeof roleHierarchy] || 0;
-    return userRoleLevel >= minRoleLevel;
+    if (!token || !userData) {
+      // Authentication state is inconsistent, clear everything
+      setUser(null);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+    } else {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        setUser(null);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+      }
+    }
   };
 
   const value: AuthContextType = {
     user,
     isLoading,
-    isAuthenticated: !!user,
     login,
     logout,
-    hasRole,
-    hasMinRole,
+    checkAuthState,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}

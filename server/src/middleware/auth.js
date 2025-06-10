@@ -16,36 +16,63 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Get user from database to ensure they still exist and are active
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        status: true,
-      },
-    });
+    // Handle mock tokens in development
+    if (process.env.NODE_ENV === 'development' && token.startsWith('mock-jwt-token-')) {
+      // Mock authentication for development
+      let mockUser;
+      if (token.includes('admin')) {
+        mockUser = {
+          id: '1',
+          email: 'admin@rotifactory.com',
+          firstName: 'Super',
+          lastName: 'Admin',
+          role: 'SUPER_ADMIN',
+          status: 'ACTIVE',
+        };
+      } else {
+        mockUser = {
+          id: '2',
+          email: 'manager@rotifactory.com',
+          firstName: 'Store',
+          lastName: 'Manager',
+          role: 'MANAGER',
+          status: 'ACTIVE',
+        };
+      }
+      req.user = mockUser;
+    } else {
+      // Real JWT verification
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!user) {
-      return res.status(401).json({
-        error: 'Access denied',
-        message: 'User not found',
+      // Get user from database to ensure they still exist and are active
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+        },
       });
-    }
 
-    if (user.status !== 'ACTIVE') {
-      return res.status(401).json({
-        error: 'Access denied',
-        message: 'User account is not active',
-      });
-    }
+      if (!user) {
+        return res.status(401).json({
+          error: 'Access denied',
+          message: 'User not found',
+        });
+      }
 
-    req.user = user;
+      if (user.status !== 'ACTIVE') {
+        return res.status(401).json({
+          error: 'Access denied',
+          message: 'User account is not active',
+        });
+      }
+
+      req.user = user;
+    }
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {

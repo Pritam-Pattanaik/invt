@@ -34,6 +34,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Handle network errors gracefully
+    if (!error.response) {
+      // Network error - handled silently
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
@@ -61,10 +67,14 @@ api.interceptors.response.use(
       }
     }
 
-    // Show error toast for non-401 errors
-    if (error.response?.status !== 401) {
-      const message = error.response?.data?.message || 'An error occurred';
-      toast.error(message);
+    // Only show error toast for client errors (4xx) and server errors (5xx), not for network issues
+    if (error.response?.status >= 400 && error.response?.status !== 401) {
+      const message = error.response?.data?.message || error.response?.data?.error || `HTTP ${error.response.status}`;
+      // API Error - handled silently for non-critical errors
+      // Only show toast for critical errors, not for expected failures
+      if (error.response.status >= 500) {
+        toast.error(message);
+      }
     }
 
     return Promise.reject(error);
@@ -132,6 +142,17 @@ export const manufacturingAPI = {
     costPrice: number;
     unit: string;
   }) => api.post('/manufacturing/products', data),
+
+  updateProduct: (id: string, data: {
+    name?: string;
+    description?: string;
+    category?: string;
+    unitPrice?: number;
+    costPrice?: number;
+    unit?: string;
+  }) => api.put(`/manufacturing/products/${id}`, data),
+
+  deleteProduct: (id: string) => api.delete(`/manufacturing/products/${id}`),
   
   // Raw Materials
   getRawMaterials: (params?: {
@@ -235,12 +256,15 @@ export const countersAPI = {
 
 // Sales API
 export const salesAPI = {
+  getProducts: () => api.get('/sales/products'),
+
   getOrders: (params?: {
     page?: number;
     limit?: number;
     status?: string;
     startDate?: string;
     endDate?: string;
+    deliveryDate?: string;
   }) => api.get('/sales/orders', { params }),
 
   createOrder: (data: {
@@ -261,6 +285,8 @@ export const salesAPI = {
     paymentStatus?: string;
   }) => api.put(`/sales/orders/${id}`, data),
 
+  deleteOrder: (id: string) => api.delete(`/sales/orders/${id}`),
+
   getPOSTransactions: (params?: {
     page?: number;
     limit?: number;
@@ -278,6 +304,19 @@ export const salesAPI = {
     paymentMethod: string;
     cashierName: string;
   }) => api.post('/sales/pos', data),
+
+  updatePOSTransaction: (id: string, data: {
+    customerName?: string;
+    items?: Array<{
+      productId: string;
+      quantity: number;
+      price: number;
+    }>;
+    paymentMethod?: string;
+    cashierName?: string;
+  }) => api.put(`/sales/pos/${id}`, data),
+
+  deletePOSTransaction: (id: string) => api.delete(`/sales/pos/${id}`),
 
   getSalesReports: (params?: {
     period?: string;

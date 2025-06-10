@@ -42,6 +42,59 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
+    // Mock authentication for development
+    if (process.env.NODE_ENV === 'development') {
+      const mockUsers = {
+        'admin@rotifactory.com': {
+          id: '1',
+          email: 'admin@rotifactory.com',
+          firstName: 'Super',
+          lastName: 'Admin',
+          role: 'SUPER_ADMIN',
+          status: 'ACTIVE',
+        },
+        'manager@rotifactory.com': {
+          id: '2',
+          email: 'manager@rotifactory.com',
+          firstName: 'Store',
+          lastName: 'Manager',
+          role: 'MANAGER',
+          status: 'ACTIVE',
+        },
+        'superadmin@rotifactory.com': {
+          id: '3',
+          email: 'superadmin@rotifactory.com',
+          firstName: 'Super',
+          lastName: 'Admin',
+          role: 'SUPER_ADMIN',
+          status: 'ACTIVE',
+        },
+        'franchise@rotifactory.com': {
+          id: '4',
+          email: 'franchise@rotifactory.com',
+          firstName: 'Franchise',
+          lastName: 'Manager',
+          role: 'FRANCHISE_MANAGER',
+          status: 'ACTIVE',
+        },
+      };
+
+      const mockUser = mockUsers[email];
+      if (mockUser && password === 'admin123') {
+        // Generate mock tokens
+        const mockAccessToken = `mock-jwt-token-${mockUser.role.toLowerCase()}-${Date.now()}`;
+        const mockRefreshToken = `mock-refresh-token-${Date.now()}`;
+
+        return res.json({
+          message: 'Login successful',
+          user: mockUser,
+          accessToken: mockAccessToken,
+          refreshToken: mockRefreshToken,
+        });
+      }
+    }
+
+    // Real authentication for production
     // Find user
     const user = await prisma.user.findUnique({
       where: { email },

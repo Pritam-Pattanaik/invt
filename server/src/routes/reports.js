@@ -48,11 +48,14 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
       
       // Recent orders
       recentOrders,
-      
+
+      // Recent POS transactions
+      recentPOSTransactions,
+
       // Low stock items
       lowStockProducts,
       lowStockRawMaterials,
-      
+
       // Top selling products
       topProducts,
     ] = await Promise.all([
@@ -129,6 +132,17 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
             select: {
               name: true,
             },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+
+      // Recent POS transactions
+      prisma.pOSTransaction.findMany({
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -237,6 +251,7 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
         averageOrderValue: yearlyOrders > 0 ? (yearlySales._sum.finalAmount || 0) / yearlyOrders : 0,
       },
       recentOrders,
+      recentPOSTransactions,
       alerts: {
         lowStockProducts,
         lowStockRawMaterials,
@@ -308,8 +323,8 @@ router.get('/sales', requireMinRole('MANAGER'), [
       where.counterId = counterId;
     }
 
-    // Get sales data
-    const [salesData, totalStats] = await Promise.all([
+    // Get sales data (orders and POS transactions)
+    const [salesData, totalStats, posData, posStats] = await Promise.all([
       prisma.order.findMany({
         where,
         select: {
@@ -355,6 +370,39 @@ router.get('/sales', requireMinRole('MANAGER'), [
         _count: true,
         _avg: {
           finalAmount: true,
+        },
+      }),
+      // Get POS transactions for the same period
+      prisma.pOSTransaction.findMany({
+        where: {
+          transactionDate: {
+            gte: start,
+            lte: end,
+          },
+        },
+        select: {
+          id: true,
+          transactionNumber: true,
+          totalAmount: true,
+          transactionDate: true,
+          paymentMethod: true,
+          customerName: true,
+        },
+        orderBy: { transactionDate: 'desc' },
+      }),
+      prisma.pOSTransaction.aggregate({
+        where: {
+          transactionDate: {
+            gte: start,
+            lte: end,
+          },
+        },
+        _sum: {
+          totalAmount: true,
+        },
+        _count: true,
+        _avg: {
+          totalAmount: true,
         },
       }),
     ]);
@@ -403,14 +451,20 @@ router.get('/sales', requireMinRole('MANAGER'), [
       message: 'Sales report retrieved successfully',
       data: {
         summary: {
-          totalSales: totalStats._sum.finalAmount || 0,
-          totalOrders: totalStats._count,
-          averageOrderValue: totalStats._avg.finalAmount || 0,
-          totalDiscount: totalStats._sum.discount || 0,
-          totalTax: totalStats._sum.tax || 0,
+          totalSales: parseFloat(totalStats._sum.finalAmount) || 0, // Orders only
+          totalOrders: totalStats._count, // Orders only
+          averageOrderValue: parseFloat(totalStats._avg.finalAmount) || 0, // Orders only
+          totalDiscount: parseFloat(totalStats._sum.discount) || 0,
+          totalTax: parseFloat(totalStats._sum.tax) || 0,
         },
+        // Separate orders and POS data
+        ordersRevenue: parseFloat(totalStats._sum.finalAmount) || 0,
+        ordersCount: totalStats._count,
+        posRevenue: parseFloat(posStats._sum.totalAmount) || 0,
+        posCount: posStats._count,
         chartData,
         orders: salesData,
+        posTransactions: posData,
       },
       filters: {
         startDate: start,

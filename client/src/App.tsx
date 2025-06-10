@@ -1,12 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient as TanStackQueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
-import AnimatedDashboard from './components/AnimatedDashboard';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import Sales from './pages/Sales';
+import Manufacturing from './pages/Manufacturing';
+import Franchises from './pages/Franchises';
+import Counters from './pages/Counters';
+import Finance from './pages/Finance';
+import HumanResources from './pages/HumanResources';
+import Reports from './pages/Reports';
+import Settings from './pages/Settings';
+import Users from './pages/Users';
+// import AnimatedDashboard from './components/AnimatedDashboard';
 
 // Simple Login Component
-const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
+const LoginPage: React.FC = () => {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,29 +34,10 @@ const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      // Store the token in localStorage
-      localStorage.setItem('authToken', data.accessToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      toast.success('Login successful!');
-      onLogin();
+      await login(email, password);
+      // Navigation will be handled automatically by the routing logic
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error(error instanceof Error ? error.message : 'Login failed');
+      // Error is already handled in the AuthContext
     } finally {
       setIsLoading(false);
     }
@@ -290,26 +288,19 @@ const SimpleDashboard: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 };
 */
 
-// Main App Component
-const App: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+// Create QueryClient instance
+const queryClient = new TanStackQueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-  useEffect(() => {
-    // Check if user is already logged in
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      setIsLoggedIn(true);
-    }
-    setIsLoading(false);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    setIsLoggedIn(false);
-    toast.success('Logged out successfully');
-  };
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -322,34 +313,77 @@ const App: React.FC = () => {
     );
   }
 
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// App Routes Component
+const AppRoutes: React.FC = () => {
+  const { user } = useAuth();
+
   return (
-    <>
-      {isLoggedIn ? (
-        <AnimatedDashboard onLogout={handleLogout} />
-      ) : (
-        <LoginPage onLogin={() => setIsLoggedIn(true)} />
-      )}
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-          },
-          success: {
-            style: {
-              background: '#22c55e',
-            },
-          },
-          error: {
-            style: {
-              background: '#ef4444',
-            },
-          },
-        }}
+    <Routes>
+      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Routes>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/sales/*" element={<Sales />} />
+                <Route path="/manufacturing/*" element={<Manufacturing />} />
+                <Route path="/franchises/*" element={<Franchises />} />
+                <Route path="/counters/*" element={<Counters />} />
+                <Route path="/finance/*" element={<Finance />} />
+                <Route path="/hr/*" element={<HumanResources />} />
+                <Route path="/reports/*" element={<Reports />} />
+                <Route path="/settings/*" element={<Settings />} />
+                <Route path="/users/*" element={<Users />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
+        }
       />
-    </>
+    </Routes>
+  );
+};
+
+// Main App Component
+const App: React.FC = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <div className="App">
+          <AppRoutes />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+              },
+              success: {
+                style: {
+                  background: '#22c55e',
+                },
+              },
+              error: {
+                style: {
+                  background: '#ef4444',
+                },
+              },
+            }}
+          />
+        </div>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
