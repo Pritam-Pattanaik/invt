@@ -242,9 +242,14 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
         _sum: { finalAmount: true },
       }),
       
-      // Recent orders
+      // Recent orders (last 7 days)
       prisma.order.findMany({
-        where: orderWhere,
+        where: {
+          ...orderWhere,
+          createdAt: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+          },
+        },
         include: {
           counter: {
             select: {
@@ -267,14 +272,14 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
         take: 10,
       }),
 
-      // Recent POS transactions
+      // Recent POS transactions (last 7 days)
       prisma.pOSTransaction.findMany({
         where: {
-          createdAt: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+          transactionDate: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { transactionDate: 'desc' },
         take: 10,
       }),
       
@@ -375,9 +380,30 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
       totalRawMaterials,
       activeFranchises,
       totalFranchises,
+      recentOrdersCount: recentOrders.length,
+      recentPOSCount: recentPOSTransactions.length,
       userRole: req.user?.role,
       userId: req.user?.id
     });
+
+    // Log sample recent data for debugging
+    if (recentOrders.length > 0) {
+      console.log('Sample recent order:', {
+        id: recentOrders[0].id,
+        orderNumber: recentOrders[0].orderNumber,
+        createdAt: recentOrders[0].createdAt,
+        finalAmount: recentOrders[0].finalAmount
+      });
+    }
+
+    if (recentPOSTransactions.length > 0) {
+      console.log('Sample recent POS transaction:', {
+        id: recentPOSTransactions[0].id,
+        transactionNumber: recentPOSTransactions[0].transactionNumber,
+        transactionDate: recentPOSTransactions[0].transactionDate,
+        totalAmount: recentPOSTransactions[0].totalAmount
+      });
+    }
 
     const dashboardData = {
       overview: {
