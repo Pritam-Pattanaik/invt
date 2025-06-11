@@ -24,6 +24,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+      params: config.params,
+      hasAuth: !!token
+    });
     return config;
   },
   (error) => {
@@ -34,6 +38,12 @@ api.interceptors.request.use(
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => {
+    console.log(`API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+      status: response.status,
+      dataType: typeof response.data,
+      hasData: !!response.data,
+      dataKeys: response.data ? Object.keys(response.data) : []
+    });
     return response;
   },
   async (error) => {

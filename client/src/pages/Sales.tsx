@@ -95,7 +95,10 @@ const Sales: React.FC = () => {
           limit: 100 // Get more orders to ensure we have all data
         });
 
-        const allOrders = response.data || [];
+        console.log('Orders API response:', response);
+
+        // The API returns { data: orders[], pagination: {...} }
+        const allOrders = response.data?.data || response.data || [];
         console.log('All orders from API:', allOrders.length, allOrders);
 
         // Ensure we return an array
@@ -126,7 +129,10 @@ const Sales: React.FC = () => {
           limit: 100 // Get more orders to filter
         });
 
-        const allOrders = response.data || [];
+        console.log('Advance orders API response:', response);
+
+        // The API returns { data: orders[], pagination: {...} }
+        const allOrders = response.data?.data || response.data || [];
 
         // Ensure we have an array before filtering
         if (!Array.isArray(allOrders)) {
@@ -168,7 +174,10 @@ const Sales: React.FC = () => {
           limit: 100 // Get more records
         });
 
-        const allTransactions = response.data || [];
+        console.log('POS API response:', response);
+
+        // The API returns { data: transactions[], pagination: {...} }
+        const allTransactions = response.data?.data || response.data || [];
         console.log('All POS transactions from API:', allTransactions.length, allTransactions);
 
         // Ensure we return an array
