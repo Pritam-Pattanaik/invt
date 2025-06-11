@@ -116,6 +116,20 @@ router.post('/products', requireMinRole('MANAGER'), [
     }
 
     const { name, description, sku, category, unitPrice, costPrice, unit } = req.body;
+    console.log(`[CREATE PRODUCT] Creating new product in database:`, { name, sku, category });
+
+    // Check if SKU already exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { sku }
+    });
+
+    if (existingProduct) {
+      console.log(`[CREATE PRODUCT] SKU already exists: ${sku}`);
+      return res.status(400).json({
+        error: 'SKU already exists',
+        message: 'A product with this SKU already exists',
+      });
+    }
 
     const product = await prisma.product.create({
       data: {
@@ -130,8 +144,15 @@ router.post('/products', requireMinRole('MANAGER'), [
       },
     });
 
+    console.log(`[CREATE PRODUCT] Product created in database:`, {
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      isActive: product.isActive
+    });
+
     // Create initial inventory item
-    await prisma.inventoryItem.create({
+    const inventoryItem = await prisma.inventoryItem.create({
       data: {
         productId: product.id,
         currentStock: 0,
@@ -140,15 +161,20 @@ router.post('/products', requireMinRole('MANAGER'), [
       },
     });
 
+    console.log(`[CREATE PRODUCT] Inventory item created:`, {
+      id: inventoryItem.id,
+      productId: inventoryItem.productId
+    });
+
     res.status(201).json({
-      message: 'Product created successfully',
-      product,
+      message: 'Product created successfully in database',
+      data: product,
     });
   } catch (error) {
-    console.error('Create product error:', error);
+    console.error('[CREATE PRODUCT] Error creating product in database:', error);
     res.status(500).json({
       error: 'Internal server error',
-      message: 'Failed to create product',
+      message: 'Failed to create product in database',
     });
   }
 });
@@ -172,6 +198,9 @@ router.put('/products/:id', requireMinRole('MANAGER'), [
     }
 
     const { id } = req.params;
+    console.log(`[UPDATE PRODUCT] Updating product in database with ID: ${id}`);
+    console.log(`[UPDATE PRODUCT] Update data:`, req.body);
+
     const updateData = {};
 
     // Only include fields that are provided
@@ -181,6 +210,8 @@ router.put('/products/:id', requireMinRole('MANAGER'), [
     if (req.body.unitPrice) updateData.unitPrice = parseFloat(req.body.unitPrice);
     if (req.body.costPrice) updateData.costPrice = parseFloat(req.body.costPrice);
     if (req.body.unit) updateData.unit = req.body.unit;
+
+    console.log(`[UPDATE PRODUCT] Processed update data:`, updateData);
 
     const product = await prisma.product.update({
       where: { id },
@@ -196,20 +227,27 @@ router.put('/products/:id', requireMinRole('MANAGER'), [
       },
     });
 
+    console.log(`[UPDATE PRODUCT] Product updated in database:`, {
+      id: product.id,
+      name: product.name,
+      isActive: product.isActive,
+      updatedAt: product.updatedAt
+    });
+
     res.json({
-      message: 'Product updated successfully',
+      message: 'Product updated successfully in database',
       data: product,
     });
   } catch (error) {
-    console.error('Update product error:', error);
+    console.error('[UPDATE PRODUCT] Error updating product in database:', error);
     if (error.code === 'P2025') {
       return res.status(404).json({
-        error: 'Product not found',
+        error: 'Product not found in database',
       });
     }
     res.status(500).json({
       error: 'Internal server error',
-      message: 'Failed to update product',
+      message: 'Failed to update product in database',
     });
   }
 });

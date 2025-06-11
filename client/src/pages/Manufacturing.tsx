@@ -265,52 +265,57 @@ const ProductsPage: React.FC = () => {
   // Update product mutation - database only
   const updateProductMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      console.log('Manufacturing: Updating product in database:', { id, data });
       const response = await manufacturingAPI.updateProduct(id, data);
+      console.log('Manufacturing: Product updated in database:', response);
       return response.data;
     },
-    onSuccess: () => {
-      // Database update successful
+    onSuccess: (data) => {
+      // Database update successful - force refresh from database
+      console.log('Manufacturing: Product successfully updated in database:', data);
       queryClient.invalidateQueries({ queryKey: ['manufacturing-products'] });
-      toast.success('Product updated successfully!');
+      queryClient.refetchQueries({ queryKey: ['manufacturing-products'] });
+      toast.success('Product updated successfully in database!');
       setShowEditModal(false);
       setEditingProduct(null);
     },
     onError: (error: any) => {
+      console.error('Manufacturing: Failed to update product in database:', error);
       if (error.response?.status === 401) {
         toast.error('Please log in to update products');
       } else {
-        toast.error(error.response?.data?.message || 'Failed to update product');
+        toast.error(error.response?.data?.message || 'Failed to update product in database');
       }
-      console.error('Update product error:', error);
     },
   });
 
   // Delete product mutation - database only
   const deleteProductMutation = useMutation({
     mutationFn: async (id: string) => {
-      console.log('Manufacturing: Deleting product with ID:', id);
+      console.log('Manufacturing: Deleting product from database with ID:', id);
       const response = await manufacturingAPI.deleteProduct(id);
-      console.log('Manufacturing: Delete response:', response);
+      console.log('Manufacturing: Delete response from database:', response);
       return response.data;
     },
     onSuccess: (data) => {
-      // Database delete successful
-      console.log('Manufacturing: Product delete successful:', data);
+      // Database delete successful - force refresh from database
+      console.log('Manufacturing: Product successfully deleted from database:', data);
       queryClient.invalidateQueries({ queryKey: ['manufacturing-products'] });
+      queryClient.refetchQueries({ queryKey: ['manufacturing-products'] });
 
       // Show appropriate message based on whether it was soft delete or hard delete
       if (data?.message?.includes('deactivated')) {
-        toast.success('Product deactivated successfully! (Product has existing dependencies)');
+        toast.success('Product deactivated in database! (Product has existing dependencies)');
       } else {
-        toast.success('Product deleted successfully!');
+        toast.success('Product deleted successfully from database!');
       }
     },
     onError: (error: any) => {
-      console.error('Manufacturing: Delete product error:', error);
+      console.error('Manufacturing: Failed to delete product from database:', error);
       if (error.response?.status === 401) {
         toast.error('Please log in to delete products');
       } else {
-        toast.error(error.response?.data?.message || 'Failed to delete product');
+        toast.error(error.response?.data?.message || 'Failed to delete product from database');
       }
     },
   });
@@ -318,13 +323,17 @@ const ProductsPage: React.FC = () => {
   // Add product mutation - database only
   const addProductMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('Manufacturing: Adding product to database:', data);
       const response = await manufacturingAPI.createProduct(data);
+      console.log('Manufacturing: Product added to database:', response);
       return response.data;
     },
-    onSuccess: () => {
-      // Database create successful
+    onSuccess: (data) => {
+      // Database create successful - force refresh from database
+      console.log('Manufacturing: Product successfully added to database:', data);
       queryClient.invalidateQueries({ queryKey: ['manufacturing-products'] });
-      toast.success('Product added successfully!');
+      queryClient.refetchQueries({ queryKey: ['manufacturing-products'] });
+      toast.success('Product added successfully to database!');
       setShowAddModal(false);
       setNewProduct({
         name: '',
@@ -337,12 +346,12 @@ const ProductsPage: React.FC = () => {
       });
     },
     onError: (error: any) => {
+      console.error('Manufacturing: Failed to add product to database:', error);
       if (error.response?.status === 401) {
         toast.error('Please log in to add products');
       } else {
-        toast.error(error.response?.data?.message || 'Failed to add product');
+        toast.error(error.response?.data?.message || 'Failed to add product to database');
       }
-      console.error('Add product error:', error);
     },
   });
 
@@ -389,30 +398,7 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  // Cleanup inactive products mutation (admin only)
-  const cleanupInactiveProductsMutation = useMutation({
-    mutationFn: async () => {
-      console.log('Manufacturing: Cleaning up inactive products...');
-      const response = await manufacturingAPI.cleanupInactiveProducts();
-      console.log('Manufacturing: Cleanup response:', response);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      console.log('Manufacturing: Cleanup successful:', data);
-      queryClient.invalidateQueries({ queryKey: ['manufacturing-products'] });
-      toast.success(`Cleanup completed! Deleted ${data.deleted} inactive products.`);
-    },
-    onError: (error: any) => {
-      console.error('Manufacturing: Cleanup error:', error);
-      toast.error(error.response?.data?.message || 'Failed to cleanup inactive products');
-    },
-  });
 
-  const handleCleanupInactiveProducts = () => {
-    if (window.confirm('This will permanently delete all inactive products from the database. This action cannot be undone. Are you sure?')) {
-      cleanupInactiveProductsMutation.mutate();
-    }
-  };
 
   if (isLoading) {
     return (
@@ -548,24 +534,12 @@ const ProductsPage: React.FC = () => {
       <div className="manufacturing-card bg-white rounded-xl shadow-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Product Catalog</h3>
-          <div className="flex space-x-3">
-            <button
-              onClick={handleAddProduct}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              Add New Product
-            </button>
-            {user?.role === 'SUPER_ADMIN' && (
-              <button
-                onClick={handleCleanupInactiveProducts}
-                disabled={cleanupInactiveProductsMutation.isPending}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                title="Permanently delete all inactive products from database"
-              >
-                {cleanupInactiveProductsMutation.isPending ? 'Cleaning...' : 'Cleanup Inactive'}
-              </button>
-            )}
-          </div>
+          <button
+            onClick={handleAddProduct}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Add New Product
+          </button>
         </div>
 
         {!Array.isArray(products) || products.length === 0 ? (

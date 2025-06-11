@@ -174,8 +174,6 @@ export const manufacturingAPI = {
   }) => api.put(`/manufacturing/products/${id}`, data),
 
   deleteProduct: (id: string) => api.delete(`/manufacturing/products/${id}`),
-
-  cleanupInactiveProducts: () => api.delete('/manufacturing/products/cleanup-inactive'),
   
   // Raw Materials
   getRawMaterials: (params?: {
