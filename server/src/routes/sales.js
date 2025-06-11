@@ -92,6 +92,13 @@ router.get('/orders', [
         gte: deliveryDate,
         lt: nextDay
       };
+
+      console.log('Orders: Delivery date filter:', {
+        input: req.query.deliveryDate,
+        deliveryDate,
+        nextDay,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
     }
 
     const [orders, total] = await Promise.all([
@@ -404,6 +411,13 @@ router.get('/pos', [
         gte: startOfDay,
         lt: endOfDay
       };
+
+      console.log('POS: Transaction date filter:', {
+        input: req.query.date,
+        startOfDay,
+        endOfDay,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
     } else if (req.query.startDate || req.query.endDate) {
       where.transactionDate = {};
       if (req.query.startDate) where.transactionDate.gte = new Date(req.query.startDate);

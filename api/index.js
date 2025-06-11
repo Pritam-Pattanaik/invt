@@ -86,7 +86,13 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     userAgent: req.get('User-Agent'),
     origin: req.get('Origin'),
-    host: req.get('Host')
+    host: req.get('Host'),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    envCheck: {
+      hasDatabase: !!process.env.DATABASE_URL,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      nodeEnv: process.env.NODE_ENV
+    }
   });
 });
 
@@ -108,22 +114,71 @@ app.get('/db-status', async (req, res) => {
   try {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
-    
+
+    console.log('Testing database connection...');
     await prisma.$connect();
+
+    // Get actual data counts
+    const [userCount, orderCount, posCount, productCount] = await Promise.all([
+      prisma.user.count(),
+      prisma.order.count(),
+      prisma.pOSTransaction.count(),
+      prisma.product.count()
+    ]);
+
+    // Get today's data specifically
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+    const [todayOrders, todayPOS] = await Promise.all([
+      prisma.order.count({
+        where: {
+          deliveryDate: {
+            gte: startOfDay,
+            lt: endOfDay
+          }
+        }
+      }),
+      prisma.pOSTransaction.count({
+        where: {
+          transactionDate: {
+            gte: startOfDay,
+            lt: endOfDay
+          }
+        }
+      })
+    ]);
+
     await prisma.$disconnect();
-    
-    res.json({ 
-      status: 'OK', 
+
+    res.json({
+      status: 'OK',
       message: 'Database connection successful',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      data: {
+        total: {
+          users: userCount,
+          orders: orderCount,
+          posTransactions: posCount,
+          products: productCount
+        },
+        today: {
+          orders: todayOrders,
+          posTransactions: todayPOS,
+          date: today.toISOString().split('T')[0]
+        }
+      }
     });
   } catch (error) {
     console.error('Database connection error:', error);
-    res.status(500).json({ 
-      status: 'ERROR', 
+    res.status(500).json({
+      status: 'ERROR',
       message: 'Database connection failed',
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

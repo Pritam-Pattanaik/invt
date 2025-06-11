@@ -40,6 +40,11 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "DATABASE_URL": "postgresql://neondb_owner:npg_NsG3bmhO6lHV@ep-weathered-hall-a1pj359g-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+    "JWT_SECRET": "roti-factory-super-secret-jwt-key-production-2024",
+    "JWT_REFRESH_SECRET": "roti-factory-super-secret-refresh-key-production-2024",
+    "JWT_EXPIRES_IN": "7d",
+    "JWT_REFRESH_EXPIRES_IN": "30d"
   }
 }
