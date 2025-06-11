@@ -16,6 +16,9 @@
     "db:migrate": "cd server && npx prisma migrate dev",
     "db:seed": "cd server && npx prisma db seed",
     "db:studio": "cd server && npx prisma studio",
+    "db:cleanup": "cd server && node scripts/cleanup-database.js",
+    "db:cleanup-safe": "cd server && node scripts/cleanup-database-interactive.js",
+    "db:delete-orders": "cd server && node scripts/delete-orders.js",
     "vercel-build": "cd server && npm install && npx prisma generate && cd ../client && npm install && npm run build && cd ../api && npm install"
   },
   "keywords": [
