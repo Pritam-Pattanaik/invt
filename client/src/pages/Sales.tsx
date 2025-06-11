@@ -224,7 +224,16 @@ const Sales: React.FC = () => {
 
   // Additional client-side filtering to ensure only today's orders are shown
   const todaysOrders = React.useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    console.log('🗓️ Current Date Info:', {
+      today: today.toISOString(),
+      todayStr,
+      localDate: today.toLocaleDateString('en-IN'),
+      localTime: today.toLocaleTimeString('en-IN'),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
 
     // Ensure orders is an array before filtering
     if (!Array.isArray(orders)) {
@@ -232,7 +241,15 @@ const Sales: React.FC = () => {
       return [];
     }
 
-    return orders.filter((order: any) => {
+    // Log all orders for debugging
+    console.log('📋 All Orders:', orders.map(order => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      deliveryDate: order.deliveryDate,
+      customerName: order.customerName || order.customer?.name
+    })));
+
+    const filtered = orders.filter((order: any) => {
       if (!order.deliveryDate) return false;
 
       // Normalize the delivery date to YYYY-MM-DD format
@@ -256,12 +273,67 @@ const Sales: React.FC = () => {
         orderDeliveryDate = new Date(order.deliveryDate).toISOString().split('T')[0];
       }
 
-      const isToday = orderDeliveryDate === today;
-      if (import.meta.env.DEV) {
-        console.log(`Order ${order.id || order.orderNumber}: deliveryDate="${orderDeliveryDate}", today="${today}", isToday=${isToday}`);
-      }
+      const isToday = orderDeliveryDate === todayStr;
+      console.log(`📦 Order ${order.orderNumber}: deliveryDate="${orderDeliveryDate}", today="${todayStr}", isToday=${isToday}`);
       return isToday;
     });
+
+    console.log('✅ Today\'s Orders Result:', {
+      totalOrders: orders.length,
+      filteredOrders: filtered.length,
+      todayStr,
+      availableDeliveryDates: [...new Set(orders.map(order => {
+        if (!order.deliveryDate) return 'null';
+        if (typeof order.deliveryDate === 'string' && order.deliveryDate.includes('/')) {
+          const parts = order.deliveryDate.split('/');
+          if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            return `${year}-${month}-${day}`;
+          }
+        }
+        return order.deliveryDate.includes('T') ? order.deliveryDate.split('T')[0] : order.deliveryDate;
+      }))]
+    });
+
+    // If no orders for today, show recent orders (last 7 days) for debugging
+    if (filtered.length === 0 && orders.length > 0) {
+      console.warn('⚠️ No orders found for today. Showing recent orders instead.');
+      const last7Days = new Date();
+      last7Days.setDate(last7Days.getDate() - 7);
+      const last7DaysStr = last7Days.toISOString().split('T')[0];
+
+      const recentOrders = orders.filter((order: any) => {
+        if (!order.deliveryDate) return false;
+
+        let orderDeliveryDate = '';
+        if (typeof order.deliveryDate === 'string') {
+          if (order.deliveryDate.includes('T')) {
+            orderDeliveryDate = order.deliveryDate.split('T')[0];
+          } else if (order.deliveryDate.includes('/')) {
+            const parts = order.deliveryDate.split('/');
+            if (parts.length === 3) {
+              const day = parts[0].padStart(2, '0');
+              const month = parts[1].padStart(2, '0');
+              const year = parts[2];
+              orderDeliveryDate = `${year}-${month}-${day}`;
+            }
+          } else {
+            orderDeliveryDate = order.deliveryDate;
+          }
+        } else {
+          orderDeliveryDate = new Date(order.deliveryDate).toISOString().split('T')[0];
+        }
+
+        return orderDeliveryDate >= last7DaysStr;
+      });
+
+      console.log('📅 Showing recent orders (last 7 days):', recentOrders.length);
+      return recentOrders;
+    }
+
+    return filtered;
   }, [orders]);
 
   // Additional client-side filtering to ensure only today's POS transactions are shown
@@ -1018,8 +1090,62 @@ const Sales: React.FC = () => {
             {/* Orders Table */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Today's Orders</h3>
-                <p className="text-sm text-gray-600 mt-1">Orders scheduled for delivery today</p>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {todaysOrders.length > 0 && orders.length > 0 &&
+                   todaysOrders.length === orders.filter((order: any) => {
+                     if (!order.deliveryDate) return false;
+                     const today = new Date().toISOString().split('T')[0];
+                     let orderDeliveryDate = '';
+                     if (typeof order.deliveryDate === 'string') {
+                       if (order.deliveryDate.includes('T')) {
+                         orderDeliveryDate = order.deliveryDate.split('T')[0];
+                       } else if (order.deliveryDate.includes('/')) {
+                         const parts = order.deliveryDate.split('/');
+                         if (parts.length === 3) {
+                           const day = parts[0].padStart(2, '0');
+                           const month = parts[1].padStart(2, '0');
+                           const year = parts[2];
+                           orderDeliveryDate = `${year}-${month}-${day}`;
+                         }
+                       } else {
+                         orderDeliveryDate = order.deliveryDate;
+                       }
+                     } else {
+                       orderDeliveryDate = new Date(order.deliveryDate).toISOString().split('T')[0];
+                     }
+                     return orderDeliveryDate === today;
+                   }).length
+                   ? "Today's Orders"
+                   : "Recent Orders (Last 7 Days)"}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {todaysOrders.length > 0 && orders.length > 0 &&
+                   todaysOrders.length === orders.filter((order: any) => {
+                     if (!order.deliveryDate) return false;
+                     const today = new Date().toISOString().split('T')[0];
+                     let orderDeliveryDate = '';
+                     if (typeof order.deliveryDate === 'string') {
+                       if (order.deliveryDate.includes('T')) {
+                         orderDeliveryDate = order.deliveryDate.split('T')[0];
+                       } else if (order.deliveryDate.includes('/')) {
+                         const parts = order.deliveryDate.split('/');
+                         if (parts.length === 3) {
+                           const day = parts[0].padStart(2, '0');
+                           const month = parts[1].padStart(2, '0');
+                           const year = parts[2];
+                           orderDeliveryDate = `${year}-${month}-${day}`;
+                         }
+                       } else {
+                         orderDeliveryDate = order.deliveryDate;
+                       }
+                     } else {
+                       orderDeliveryDate = new Date(order.deliveryDate).toISOString().split('T')[0];
+                     }
+                     return orderDeliveryDate === today;
+                   }).length
+                   ? `Orders scheduled for delivery today (${new Date().toLocaleDateString('en-IN')})`
+                   : `No orders for today. Showing recent orders instead. Current date: ${new Date().toLocaleDateString('en-IN')}`}
+                </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
