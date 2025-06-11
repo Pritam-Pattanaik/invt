@@ -1092,8 +1092,30 @@ const Sales: React.FC = () => {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={permissions.isSuperAdmin() ? 8 : 7} className="py-8 text-center text-gray-500">
-                          No orders found
+                        <td colSpan={permissions.isSuperAdmin() ? 8 : 7} className="py-16 text-center">
+                          <div className="flex flex-col items-center space-y-4">
+                            <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div className="text-center">
+                              <h3 className="text-lg font-medium text-gray-900 mb-2">No orders available for today</h3>
+                              <p className="text-gray-600 mb-1">
+                                There are currently no orders scheduled for delivery today ({new Date().toLocaleDateString('en-IN')}).
+                              </p>
+                              <p className="text-sm text-gray-500 mb-6">
+                                Orders with delivery date = today will appear in this table.
+                              </p>
+                              <button
+                                onClick={() => setShowAddOrder(true)}
+                                className="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
+                              >
+                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                Create First Order
+                              </button>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -1308,8 +1330,30 @@ const Sales: React.FC = () => {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={permissions.isSuperAdmin() ? 6 : 5} className="py-8 text-center text-gray-500">
-                          No transactions found
+                        <td colSpan={permissions.isSuperAdmin() ? 6 : 5} className="py-16 text-center">
+                          <div className="flex flex-col items-center space-y-4">
+                            <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <div className="text-center">
+                              <h3 className="text-lg font-medium text-gray-900 mb-2">No POS transactions for today</h3>
+                              <p className="text-gray-600 mb-1">
+                                There are currently no Point of Sale transactions for today ({new Date().toLocaleDateString('en-IN')}).
+                              </p>
+                              <p className="text-sm text-gray-500 mb-6">
+                                POS transactions will appear here when sales are made.
+                              </p>
+                              <button
+                                onClick={() => setShowPOS(true)}
+                                className="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                              >
+                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                </svg>
+                                Start First Sale
+                              </button>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     )}

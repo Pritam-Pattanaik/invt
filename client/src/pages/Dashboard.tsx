@@ -598,10 +598,24 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
               )) || (
-                <div className="text-center py-8">
-                  <ShoppingCartIcon className="mx-auto h-12 w-12 text-gray-300" />
-                  <p className="text-sm text-gray-500 mt-2">No recent orders</p>
-                  <p className="text-xs text-gray-400">Click to create your first order</p>
+                <div className="text-center py-12">
+                  <ShoppingCartIcon className="mx-auto h-16 w-16 text-gray-300" />
+                  <h3 className="text-lg font-medium text-gray-900 mt-4">No recent orders</h3>
+                  <p className="text-sm text-gray-600 mt-2">
+                    There are currently no recent orders to display.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Orders will appear here when created with delivery dates in the last 7 days.
+                  </p>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => navigate('/sales')}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Create Order
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -645,10 +659,24 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
               )) || (
-                <div className="text-center py-8">
-                  <CurrencyRupeeIcon className="mx-auto h-12 w-12 text-gray-300" />
-                  <p className="text-sm text-gray-500 mt-2">No recent POS sales</p>
-                  <p className="text-xs text-gray-400">Click to start selling</p>
+                <div className="text-center py-12">
+                  <CurrencyRupeeIcon className="mx-auto h-16 w-16 text-gray-300" />
+                  <h3 className="text-lg font-medium text-gray-900 mt-4">No recent POS sales</h3>
+                  <p className="text-sm text-gray-600 mt-2">
+                    There are currently no recent Point of Sale transactions.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    POS transactions will appear here when sales are made.
+                  </p>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => navigate('/sales/pos')}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Start Selling
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
