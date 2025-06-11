@@ -14,7 +14,6 @@ import HumanResources from './pages/HumanResources';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
-// import AnimatedDashboard from './components/AnimatedDashboard';
 
 // Simple Login Component
 const LoginPage: React.FC = () => {
