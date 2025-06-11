@@ -301,7 +301,15 @@ const queryClient = new TanStackQueryClient({
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
 
+  console.log('ProtectedRoute render:', {
+    hasUser: !!user,
+    isLoading,
+    userEmail: user?.email,
+    userRole: user?.role
+  });
+
   if (isLoading) {
+    console.log('ProtectedRoute: Still loading, showing spinner');
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -313,9 +321,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!user) {
+    console.log('ProtectedRoute: No user found, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
+  console.log('ProtectedRoute: User authenticated, rendering children');
   return <>{children}</>;
 };
 
@@ -323,9 +333,28 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AppRoutes: React.FC = () => {
   const { user } = useAuth();
 
+  console.log('AppRoutes render:', {
+    hasUser: !!user,
+    currentPath: window.location.pathname,
+    userEmail: user?.email
+  });
+
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route
+        path="/login"
+        element={user ? (
+          <>
+            {console.log('User logged in, redirecting to dashboard')}
+            <Navigate to="/dashboard" replace />
+          </>
+        ) : (
+          <>
+            {console.log('No user, showing login page')}
+            <LoginPage />
+          </>
+        )}
+      />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route
         path="/*"

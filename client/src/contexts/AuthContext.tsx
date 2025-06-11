@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { authAPI } from '../services/api';
 
 export interface User {
   id: string;
@@ -30,14 +31,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkAuth = () => {
       try {
+        console.log('Checking authentication state...');
         const token = localStorage.getItem('accessToken');
         const userData = localStorage.getItem('user');
 
+        console.log('Auth check:', {
+          hasToken: !!token,
+          hasUserData: !!userData,
+          tokenLength: token?.length || 0
+        });
+
         if (token && userData) {
           const parsedUser = JSON.parse(userData);
+          console.log('Setting user from localStorage:', {
+            email: parsedUser.email,
+            role: parsedUser.role
+          });
           setUser(parsedUser);
         } else {
           // If either token or user data is missing, clear everything
+          console.log('Missing auth data, clearing localStorage');
           setUser(null);
           if (!token || !userData) {
             localStorage.removeItem('accessToken');
@@ -54,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
       } finally {
+        console.log('Auth check complete, setting isLoading to false');
         setIsLoading(false);
       }
     };
@@ -64,20 +78,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<void> => {
     try {
       setIsLoading(true);
-      // Use real API endpoint
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      console.log('Attempting login with email:', email);
+
+      // Use the proper API service that handles environment detection
+      const response = await authAPI.login({ email, password });
+      const data = response.data;
+
+      console.log('Login response received:', {
+        hasUser: !!data.user,
+        hasAccessToken: !!data.accessToken,
+        hasRefreshToken: !!data.refreshToken
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
 
       // Store tokens and user data
       localStorage.setItem('accessToken', data.accessToken);
@@ -87,9 +98,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Update user state
       setUser(data.user);
       toast.success('Login successful!');
-    } catch (error) {
+      console.log('Login successful, user state updated');
+    } catch (error: any) {
       console.error('Login error:', error);
-      toast.error(error instanceof Error ? error.message : 'Invalid email or password');
+      const errorMessage = error.response?.data?.message ||
+                          error.response?.data?.error ||
+                          error.message ||
+                          'Invalid email or password';
+      toast.error(errorMessage);
       throw error;
     } finally {
       setIsLoading(false);
