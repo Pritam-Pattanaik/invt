@@ -199,15 +199,27 @@ const Sales: React.FC = () => {
     queryKey: ['products'],
     queryFn: async () => {
       try {
+        console.log('Fetching products...');
         const response = await salesAPI.getProducts();
-        return response.data || [];
+        console.log('Products API response:', response);
+
+        // Handle nested response structure
+        const productsData = response.data?.data || response.data || [];
+        console.log('Products data extracted:', productsData);
+
+        // Ensure we return an array
+        return Array.isArray(productsData) ? productsData : [];
       } catch (error) {
+        console.error('Products API error:', error);
         // Products API not available, using mock data
-        return getMockProducts();
+        const mockData = getMockProducts();
+        console.log('Using mock products data:', mockData);
+        return Array.isArray(mockData) ? mockData : [];
       }
     },
     enabled: !!localStorage.getItem('accessToken'), // Only run if authenticated
     staleTime: 300000, // 5 minutes
+    retry: 2,
   });
 
   // Additional client-side filtering to ensure only today's orders are shown
@@ -1138,7 +1150,7 @@ const Sales: React.FC = () => {
                           Loading advance orders...
                         </td>
                       </tr>
-                    ) : advanceOrders.length > 0 ? advanceOrders.map((order: any) => (
+                    ) : Array.isArray(advanceOrders) && advanceOrders.length > 0 ? advanceOrders.map((order: any) => (
                       <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="py-4 px-6 font-medium text-gray-900">{order.orderNumber || order.id}</td>
                         <td className="py-4 px-6">
@@ -1155,11 +1167,11 @@ const Sales: React.FC = () => {
                         </td>
                         <td className="py-4 px-6">
                           <div className="text-sm">
-                            {order.items?.map((item: any, idx: number) => (
+                            {Array.isArray(order.items) && order.items.length > 0 ? order.items.map((item: any, idx: number) => (
                               <div key={idx} className="text-gray-600">
                                 {item.product?.name || item.productName} × {item.quantity}
                               </div>
-                            )) || 'No items'}
+                            )) : 'No items'}
                           </div>
                         </td>
                         <td className="py-4 px-6 font-semibold text-gray-900">
@@ -1602,7 +1614,7 @@ const Sales: React.FC = () => {
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       >
                         <option value="">Select Product</option>
-                        {products && Array.isArray(products) ? products.map((product, productIndex) => (
+                        {Array.isArray(products) && products.length > 0 ? products.map((product, productIndex) => (
                           <option key={product?.id || `product-${productIndex}`} value={product?.id || ''}>
                             {product?.name || 'Unknown Product'} - ₹{product?.price || 0}/{product?.unit || 'unit'}
                           </option>
@@ -1754,7 +1766,7 @@ const Sales: React.FC = () => {
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       >
                         <option value="">Select Product</option>
-                        {products && Array.isArray(products) ? products.map((product, productIndex) => (
+                        {Array.isArray(products) && products.length > 0 ? products.map((product, productIndex) => (
                           <option key={product?.id || `edit-product-${productIndex}`} value={product?.id || ''}>
                             {product?.name || 'Unknown Product'} - ₹{product?.price || 0}/{product?.unit || 'unit'}
                           </option>
@@ -1905,7 +1917,7 @@ const Sales: React.FC = () => {
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="">Select Product</option>
-                        {products && Array.isArray(products) ? products.map((product, productIndex) => (
+                        {Array.isArray(products) && products.length > 0 ? products.map((product, productIndex) => (
                           <option key={product?.id || `pos-product-${productIndex}`} value={product?.id || ''}>
                             {product?.name || 'Unknown Product'} - ₹{product?.price || 0}/{product?.unit || 'unit'}
                           </option>
@@ -2045,7 +2057,7 @@ const Sales: React.FC = () => {
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="">Select Product</option>
-                        {products && Array.isArray(products) ? products.map((product, productIndex) => (
+                        {Array.isArray(products) && products.length > 0 ? products.map((product, productIndex) => (
                           <option key={product?.id || `pos-edit-product-${productIndex}`} value={product?.id || ''}>
                             {product?.name || 'Unknown Product'} - ₹{product?.price || 0}/{product?.unit || 'unit'}
                           </option>
