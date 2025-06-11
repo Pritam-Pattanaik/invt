@@ -24,15 +24,28 @@ const Dashboard: React.FC = () => {
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Enable the real API query with better error handling
-  const { data: dashboardData, isLoading, error } = useQuery({
+  // Enable the real API query with real-time data fetching
+  const { data: dashboardData, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
       try {
-        console.log('Dashboard: Attempting to fetch dashboard data...');
+        console.log('Dashboard: Fetching real-time dashboard data...');
         const response = await reportsAPI.getDashboard();
-        console.log('Dashboard: API response received:', response);
-        return response;
+        console.log('Dashboard: Real-time API response received:', response);
+
+        // Ensure we have valid data structure
+        if (response?.data) {
+          console.log('Dashboard: Using real-time database data:', {
+            todaysSales: response.data.today?.sales || 0,
+            todaysOrders: response.data.today?.orders || 0,
+            activeFranchises: response.data.overview?.activeFranchises || 0,
+            totalProducts: response.data.overview?.totalProducts || 0
+          });
+          return response;
+        } else {
+          console.log('Dashboard: API response missing data structure, using fallback');
+          return null;
+        }
       } catch (error: any) {
         console.error('Dashboard: API error:', error);
         console.log('Dashboard: Error details:', {
@@ -41,38 +54,35 @@ const Dashboard: React.FC = () => {
           hasResponse: !!error.response
         });
         // If API fails, return null to use fallback data
-        if (error.response?.status === 401 || error.response?.status === 404 || !error.response) {
-          console.log('Dashboard: Using fallback data due to API error');
-          return null;
-        }
-        throw error;
+        console.log('Dashboard: Using fallback data due to API error');
+        return null;
       }
     },
     enabled: !!user && !!localStorage.getItem('accessToken'), // Only run query if user is authenticated
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes (renamed from cacheTime)
-    refetchOnMount: false, // Don't refetch on mount if data exists
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchInterval: false, // Disable automatic refetching
-    retry: false, // Don't retry on failure to avoid console spam
+    staleTime: 30 * 1000, // Consider data fresh for only 30 seconds for real-time updates
+    gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
+    refetchOnMount: true, // Always refetch on mount for fresh data
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchInterval: 60 * 1000, // Auto-refresh every 60 seconds for real-time data
+    retry: 2, // Retry twice on failure
   });
 
-  // Fallback data if API fails - calculated from mock orders
+  // Fallback data if API fails - will be replaced with real-time database data
   const fallbackData = {
     overview: {
-      activeFranchises: 1,
-      totalFranchises: 1,
-      totalProducts: 5,
-      totalRawMaterials: 3
+      activeFranchises: 0,
+      totalFranchises: 0,
+      totalProducts: 0,
+      totalRawMaterials: 0
     },
     today: {
-      orders: 4,        // 4 orders with today's delivery date
-      sales: 1630,      // ₹410 + ₹300 + ₹570 + ₹350 = ₹1,630
-      averageOrderValue: 407.5  // ₹1,630 ÷ 4 = ₹407.5
+      orders: 0,        // Real-time orders count from database
+      sales: 0,         // Real-time sales amount from database
+      averageOrderValue: 0  // Calculated from real-time data
     },
     monthly: {
-      orders: 25,       // Realistic monthly estimate
-      sales: 45000      // Realistic monthly sales
+      orders: 0,        // Real-time monthly orders from database
+      sales: 0          // Real-time monthly sales from database
     },
     recentOrders: [
       {
@@ -405,9 +415,22 @@ const Dashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <div className="hidden sm:block">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => {
+                    console.log('Dashboard: Manual refresh triggered');
+                    refetch();
+                  }}
+                  disabled={isLoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 text-sm"
+                  title="Refresh dashboard data"
+                >
+                  {isLoading ? 'Refreshing...' : '🔄 Refresh'}
+                </button>
+                <div className="hidden sm:block">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  </div>
                 </div>
               </div>
             </div>

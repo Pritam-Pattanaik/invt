@@ -182,7 +182,7 @@ const LoginPrompt: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSuccess
 };
 
 const ProductsPage: React.FC = () => {
-  const { user, logout, checkAuthState } = useAuth();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -469,67 +469,6 @@ const ProductsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Authentication Debug Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="text-sm">
-          <h4 className="font-medium text-blue-800 mb-2">Authentication Status</h4>
-          <div className="space-y-1 text-blue-700">
-            <p><strong>User:</strong> {user ? `${user.firstName} ${user.lastName} (${user.role})` : 'Not logged in'}</p>
-            <p><strong>Access Token:</strong> {localStorage.getItem('accessToken') ? 'Present' : 'Missing'}</p>
-            <p><strong>Refresh Token:</strong> {localStorage.getItem('refreshToken') ? 'Present' : 'Missing'}</p>
-            <p><strong>Auth Error:</strong> {authError || 'None'}</p>
-            <p><strong>API Error:</strong> {error ? (error as any).message : 'None'}</p>
-          </div>
-          <div className="mt-3 space-x-2">
-            <button
-              onClick={() => refetch()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
-            >
-              Retry API Call
-            </button>
-            <button
-              onClick={() => {
-                checkAuthState();
-                setAuthError(null);
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs"
-            >
-              Fix Auth State
-            </button>
-            <button
-              onClick={() => {
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                localStorage.removeItem('user');
-                logout();
-                setAuthError('Tokens cleared - please log in again');
-              }}
-              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs"
-            >
-              Clear Tokens
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* User Status Indicator */}
-      {user && localStorage.getItem('accessToken') && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-green-800">Database Connected</h3>
-              <div className="mt-1 text-sm text-green-700">
-                <p>Logged in as <strong>{user.firstName} {user.lastName}</strong> ({user.role}) - All changes will be saved to the database.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="manufacturing-card bg-white rounded-xl shadow-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
