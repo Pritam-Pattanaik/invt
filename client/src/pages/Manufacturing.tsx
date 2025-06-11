@@ -219,13 +219,14 @@ const ProductsPage: React.FC = () => {
 
 
 
-  // Fetch products from API - database only
+  // Fetch products from API - database only (active products only)
   const { data: productsResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['manufacturing-products'],
     queryFn: async () => {
       try {
-        console.log('Manufacturing: Fetching products...');
-        const response = await manufacturingAPI.getProducts();
+        console.log('Manufacturing: Fetching active products...');
+        // Fetch only active products by passing isActive=true parameter
+        const response = await manufacturingAPI.getProducts({ isActive: true });
         console.log('Manufacturing: Products API response:', response);
         return response;
       } catch (error: any) {
@@ -287,21 +288,30 @@ const ProductsPage: React.FC = () => {
   // Delete product mutation - database only
   const deleteProductMutation = useMutation({
     mutationFn: async (id: string) => {
+      console.log('Manufacturing: Deleting product with ID:', id);
       const response = await manufacturingAPI.deleteProduct(id);
+      console.log('Manufacturing: Delete response:', response);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Database delete successful
+      console.log('Manufacturing: Product delete successful:', data);
       queryClient.invalidateQueries({ queryKey: ['manufacturing-products'] });
-      toast.success('Product deleted successfully!');
+
+      // Show appropriate message based on whether it was soft delete or hard delete
+      if (data?.message?.includes('deactivated')) {
+        toast.success('Product deactivated successfully! (Product has existing dependencies)');
+      } else {
+        toast.success('Product deleted successfully!');
+      }
     },
     onError: (error: any) => {
+      console.error('Manufacturing: Delete product error:', error);
       if (error.response?.status === 401) {
         toast.error('Please log in to delete products');
       } else {
         toast.error(error.response?.data?.message || 'Failed to delete product');
       }
-      console.error('Delete product error:', error);
     },
   });
 
