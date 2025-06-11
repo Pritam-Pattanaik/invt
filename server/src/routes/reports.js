@@ -94,12 +94,18 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
       // Today's stats - POS Transactions (by transactionDate)
       prisma.pOSTransaction.count({
         where: {
-          transactionDate: { gte: startOfDay },
+          transactionDate: {
+            gte: startOfDay,
+            lt: new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000) // Next day
+          },
         },
       }),
       prisma.pOSTransaction.aggregate({
         where: {
-          transactionDate: { gte: startOfDay },
+          transactionDate: {
+            gte: startOfDay,
+            lt: new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000) // Next day
+          },
         },
         _sum: { totalAmount: true },
       }),
@@ -258,6 +264,7 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
     const totalTodaySales = todayOrdersSales + todayPOSSalesAmount;
 
     console.log('Dashboard calculation debug:', {
+      startOfDay: startOfDay.toISOString(),
       todayOrders,
       todayOrdersSales,
       todayPOSTransactions,
@@ -265,7 +272,11 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
       totalTodayOrders,
       totalTodaySales,
       totalProducts,
-      activeFranchises
+      totalRawMaterials,
+      activeFranchises,
+      totalFranchises,
+      userRole: req.user?.role,
+      userId: req.user?.id
     });
 
     const dashboardData = {
