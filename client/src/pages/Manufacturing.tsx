@@ -389,6 +389,31 @@ const ProductsPage: React.FC = () => {
     }
   };
 
+  // Cleanup inactive products mutation (admin only)
+  const cleanupInactiveProductsMutation = useMutation({
+    mutationFn: async () => {
+      console.log('Manufacturing: Cleaning up inactive products...');
+      const response = await manufacturingAPI.cleanupInactiveProducts();
+      console.log('Manufacturing: Cleanup response:', response);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log('Manufacturing: Cleanup successful:', data);
+      queryClient.invalidateQueries({ queryKey: ['manufacturing-products'] });
+      toast.success(`Cleanup completed! Deleted ${data.deleted} inactive products.`);
+    },
+    onError: (error: any) => {
+      console.error('Manufacturing: Cleanup error:', error);
+      toast.error(error.response?.data?.message || 'Failed to cleanup inactive products');
+    },
+  });
+
+  const handleCleanupInactiveProducts = () => {
+    if (window.confirm('This will permanently delete all inactive products from the database. This action cannot be undone. Are you sure?')) {
+      cleanupInactiveProductsMutation.mutate();
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -523,12 +548,24 @@ const ProductsPage: React.FC = () => {
       <div className="manufacturing-card bg-white rounded-xl shadow-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Product Catalog</h3>
-          <button
-            onClick={handleAddProduct}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-          >
-            Add New Product
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={handleAddProduct}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              Add New Product
+            </button>
+            {user?.role === 'SUPER_ADMIN' && (
+              <button
+                onClick={handleCleanupInactiveProducts}
+                disabled={cleanupInactiveProductsMutation.isPending}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                title="Permanently delete all inactive products from database"
+              >
+                {cleanupInactiveProductsMutation.isPending ? 'Cleaning...' : 'Cleanup Inactive'}
+              </button>
+            )}
+          </div>
         </div>
 
         {!Array.isArray(products) || products.length === 0 ? (

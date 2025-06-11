@@ -246,13 +246,25 @@ router.delete('/products/:id', requireMinRole('MANAGER'), async (req, res) => {
       });
     }
 
-    // Check if product has any dependencies
-    const hasDependencies = product.orderItems.length > 0 || product.recipes.length > 0 || product.productionBatches.length > 0;
-    console.log(`[DELETE PRODUCT] Has dependencies: ${hasDependencies}`);
+    // Check for dependencies
+    const criticalDependencies = {
+      orderItems: product.orderItems.length,
+      recipes: product.recipes.length,
+      productionBatches: product.productionBatches.length
+    };
 
-    if (hasDependencies) {
+    console.log(`[DELETE PRODUCT] Dependencies found:`, criticalDependencies);
+
+    // For now, let's be more permissive and allow hard deletion in most cases
+    // Only soft delete if there are many dependencies (indicating heavy usage)
+    const totalDependencies = criticalDependencies.orderItems + criticalDependencies.recipes + criticalDependencies.productionBatches;
+    const shouldSoftDelete = totalDependencies > 10; // Only soft delete if heavily used
+
+    console.log(`[DELETE PRODUCT] Total dependencies: ${totalDependencies}, Should soft delete: ${shouldSoftDelete}`);
+
+    if (shouldSoftDelete) {
       // Soft delete - mark as inactive instead of hard delete
-      console.log(`[DELETE PRODUCT] Performing soft delete (marking as inactive)`);
+      console.log(`[DELETE PRODUCT] Performing soft delete (marking as inactive) - heavily used product`);
       const updatedProduct = await prisma.product.update({
         where: { id },
         data: { isActive: false },
@@ -265,22 +277,51 @@ router.delete('/products/:id', requireMinRole('MANAGER'), async (req, res) => {
       });
 
       return res.json({
-        message: 'Product deactivated successfully (has existing dependencies)',
+        message: 'Product deactivated successfully (heavily used product with many dependencies)',
         data: updatedProduct,
       });
     }
 
-    // Hard delete if no dependencies
+    // Hard delete for most cases
     console.log(`[DELETE PRODUCT] Performing hard delete (removing from database)`);
-    await prisma.product.delete({
-      where: { id },
-    });
 
-    console.log(`[DELETE PRODUCT] Hard delete completed for product ID: ${id}`);
+    try {
+      // First, delete related inventory items
+      const deletedInventoryItems = await prisma.inventoryItem.deleteMany({
+        where: { productId: id }
+      });
+      console.log(`[DELETE PRODUCT] Deleted ${deletedInventoryItems.count} inventory items`);
 
-    res.json({
-      message: 'Product deleted successfully',
-    });
+      // Then delete the product
+      await prisma.product.delete({
+        where: { id },
+      });
+
+      console.log(`[DELETE PRODUCT] Hard delete completed for product ID: ${id}`);
+
+      res.json({
+        message: 'Product deleted successfully',
+      });
+    } catch (deleteError) {
+      console.error(`[DELETE PRODUCT] Hard delete failed, falling back to soft delete:`, deleteError);
+
+      // Fallback to soft delete if hard delete fails due to constraints
+      const updatedProduct = await prisma.product.update({
+        where: { id },
+        data: { isActive: false },
+      });
+
+      console.log(`[DELETE PRODUCT] Fallback soft delete completed:`, {
+        id: updatedProduct.id,
+        name: updatedProduct.name,
+        isActive: updatedProduct.isActive
+      });
+
+      return res.json({
+        message: 'Product deactivated successfully (could not delete due to database constraints)',
+        data: updatedProduct,
+      });
+    }
   } catch (error) {
     console.error('[DELETE PRODUCT] Error during deletion:', error);
     res.status(500).json({
@@ -484,6 +525,77 @@ router.get('/inventory', [
   }
 });
 
+// Reactivate soft-deleted product
+router.put('/products/:id/reactivate', requireMinRole('MANAGER'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`[REACTIVATE PRODUCT] Reactivating product ID: ${id}`);
+
+    const product = await prisma.product.update({
+      where: { id },
+      data: { isActive: true },
+    });
+
+    console.log(`[REACTIVATE PRODUCT] Product reactivated:`, {
+      id: product.id,
+      name: product.name,
+      isActive: product.isActive
+    });
+
+    res.json({
+      message: 'Product reactivated successfully',
+      data: product,
+    });
+  } catch (error) {
+    console.error('[REACTIVATE PRODUCT] Error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        error: 'Product not found',
+      });
+    }
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to reactivate product',
+    });
+  }
+});
+
+// Force delete product (admin only)
+router.delete('/products/:id/force', requireMinRole('ADMIN'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`[FORCE DELETE PRODUCT] Force deleting product ID: ${id}`);
+
+    // Delete related inventory items first
+    const deletedInventoryItems = await prisma.inventoryItem.deleteMany({
+      where: { productId: id }
+    });
+    console.log(`[FORCE DELETE PRODUCT] Deleted ${deletedInventoryItems.count} inventory items`);
+
+    // Force delete the product
+    await prisma.product.delete({
+      where: { id },
+    });
+
+    console.log(`[FORCE DELETE PRODUCT] Force delete completed for product ID: ${id}`);
+
+    res.json({
+      message: 'Product force deleted successfully',
+    });
+  } catch (error) {
+    console.error('[FORCE DELETE PRODUCT] Error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        error: 'Product not found',
+      });
+    }
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to force delete product',
+    });
+  }
+});
+
 // Test endpoint to verify database operations
 router.get('/test-db', async (req, res) => {
   try {
@@ -528,6 +640,61 @@ router.get('/test-db', async (req, res) => {
     console.error('[TEST DB] Database test error:', error);
     res.status(500).json({
       error: 'Database test failed',
+      message: error.message
+    });
+  }
+});
+
+// Cleanup inactive products (admin only)
+router.delete('/products/cleanup-inactive', requireMinRole('ADMIN'), async (req, res) => {
+  try {
+    console.log('[CLEANUP] Starting cleanup of inactive products...');
+
+    // Get all inactive products
+    const inactiveProducts = await prisma.product.findMany({
+      where: { isActive: false },
+      select: { id: true, name: true }
+    });
+
+    console.log(`[CLEANUP] Found ${inactiveProducts.length} inactive products to delete`);
+
+    let deletedCount = 0;
+    const errors = [];
+
+    for (const product of inactiveProducts) {
+      try {
+        // Delete related inventory items
+        await prisma.inventoryItem.deleteMany({
+          where: { productId: product.id }
+        });
+
+        // Delete the product
+        await prisma.product.delete({
+          where: { id: product.id }
+        });
+
+        deletedCount++;
+        console.log(`[CLEANUP] Deleted product: ${product.name} (${product.id})`);
+      } catch (error) {
+        console.error(`[CLEANUP] Failed to delete product ${product.name}:`, error);
+        errors.push({ productId: product.id, productName: product.name, error: error.message });
+      }
+    }
+
+    console.log(`[CLEANUP] Cleanup completed. Deleted: ${deletedCount}, Errors: ${errors.length}`);
+
+    res.json({
+      message: 'Inactive products cleanup completed',
+      data: {
+        totalInactive: inactiveProducts.length,
+        deleted: deletedCount,
+        errors: errors
+      }
+    });
+  } catch (error) {
+    console.error('[CLEANUP] Cleanup error:', error);
+    res.status(500).json({
+      error: 'Cleanup failed',
       message: error.message
     });
   }
