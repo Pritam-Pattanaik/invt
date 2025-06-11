@@ -33,19 +33,23 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
       activeFranchises,
       totalProducts,
       totalRawMaterials,
-      
-      // Today's stats
+
+      // Today's stats - Orders
       todayOrders,
       todaySales,
-      
+
+      // Today's stats - POS
+      todayPOSTransactions,
+      todayPOSSales,
+
       // Monthly stats
       monthlyOrders,
       monthlySales,
-      
+
       // Yearly stats
       yearlyOrders,
       yearlySales,
-      
+
       // Recent orders
       recentOrders,
 
@@ -62,23 +66,42 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
       // Basic counts
       prisma.franchise.count({ where: franchiseWhere }),
       prisma.franchise.count({ where: { ...franchiseWhere, status: 'ACTIVE' } }),
-      prisma.product.count({ where: { isActive: true } }),
-      prisma.rawMaterial.count({ where: { isActive: true } }),
-      
-      // Today's stats
+      prisma.product.count(), // Remove isActive filter to count all products
+      prisma.rawMaterial.count(), // Remove isActive filter to count all raw materials
+
+      // Today's stats - Orders (by deliveryDate for consistency with sales page)
       prisma.order.count({
         where: {
           ...orderWhere,
-          createdAt: { gte: startOfDay },
+          deliveryDate: {
+            gte: startOfDay,
+            lt: new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000) // Next day
+          },
         },
       }),
       prisma.order.aggregate({
         where: {
           ...orderWhere,
-          createdAt: { gte: startOfDay },
+          deliveryDate: {
+            gte: startOfDay,
+            lt: new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000) // Next day
+          },
           status: { not: 'CANCELLED' },
         },
         _sum: { finalAmount: true },
+      }),
+
+      // Today's stats - POS Transactions (by transactionDate)
+      prisma.pOSTransaction.count({
+        where: {
+          transactionDate: { gte: startOfDay },
+        },
+      }),
+      prisma.pOSTransaction.aggregate({
+        where: {
+          transactionDate: { gte: startOfDay },
+        },
+        _sum: { totalAmount: true },
       }),
       
       // Monthly stats
@@ -228,6 +251,23 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
       })
     );
 
+    // Calculate combined today's stats (Orders + POS)
+    const todayOrdersSales = parseFloat(todaySales._sum.finalAmount) || 0;
+    const todayPOSSalesAmount = parseFloat(todayPOSSales._sum.totalAmount) || 0;
+    const totalTodayOrders = todayOrders + todayPOSTransactions;
+    const totalTodaySales = todayOrdersSales + todayPOSSalesAmount;
+
+    console.log('Dashboard calculation debug:', {
+      todayOrders,
+      todayOrdersSales,
+      todayPOSTransactions,
+      todayPOSSalesAmount,
+      totalTodayOrders,
+      totalTodaySales,
+      totalProducts,
+      activeFranchises
+    });
+
     const dashboardData = {
       overview: {
         totalFranchises,
@@ -236,9 +276,14 @@ router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
         totalRawMaterials,
       },
       today: {
-        orders: todayOrders,
-        sales: parseFloat(todaySales._sum.finalAmount) || 0,
-        averageOrderValue: todayOrders > 0 ? parseFloat(todaySales._sum.finalAmount || 0) / todayOrders : 0,
+        orders: totalTodayOrders, // Combined orders + POS transactions
+        sales: totalTodaySales, // Combined sales from orders + POS
+        averageOrderValue: totalTodayOrders > 0 ? totalTodaySales / totalTodayOrders : 0,
+        // Breakdown for debugging
+        ordersOnly: todayOrders,
+        ordersSalesOnly: todayOrdersSales,
+        posTransactions: todayPOSTransactions,
+        posSalesOnly: todayPOSSalesAmount,
       },
       monthly: {
         orders: monthlyOrders,
