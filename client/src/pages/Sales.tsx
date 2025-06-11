@@ -738,6 +738,7 @@ const Sales: React.FC = () => {
 
   // Edit functions
   const handleEditOrder = (order: Order) => {
+    console.log('Editing order:', order);
     setEditingOrder(order);
 
     // Handle both API response format and local format
@@ -747,16 +748,28 @@ const Sales: React.FC = () => {
     const orderDate = order.orderDate ? order.orderDate.split('T')[0] : new Date().toISOString().split('T')[0];
     const deliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : new Date().toISOString().split('T')[0];
 
+    // Handle items array safely
+    const items = Array.isArray(order.items) ? order.items.map(item => ({
+      productId: item.productId || item.product?.id || '',
+      quantity: item.quantity || 1
+    })) : [];
+
+    console.log('Setting order form with:', {
+      customerName,
+      customerPhone,
+      customerAddress,
+      orderDate,
+      deliveryDate,
+      items
+    });
+
     setOrderForm({
       customerName,
       customerPhone,
       customerAddress,
       orderDate,
       deliveryDate,
-      items: order.items.map(item => ({
-        productId: item.productId || item.product?.id || '',
-        quantity: item.quantity
-      }))
+      items
     });
     setShowEditOrder(true);
   };
@@ -791,6 +804,8 @@ const Sales: React.FC = () => {
       };
 
       try {
+        console.log('Updating order with data:', updateData);
+
         // Try to update in database via API
         await salesAPI.updateOrder(editingOrder.id, updateData as any);
 
@@ -799,9 +814,10 @@ const Sales: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
         toast.success('Order updated successfully!');
-      } catch (apiError) {
-        // API not available
-        toast.error('Failed to update order. Please try again.');
+      } catch (apiError: any) {
+        console.error('API Error updating order:', apiError);
+        toast.error(`Failed to update order: ${apiError.response?.data?.error || apiError.message || 'Unknown error'}`);
+        return; // Don't close modal on error
       }
 
       // Reset form and close modal
@@ -913,6 +929,8 @@ const Sales: React.FC = () => {
   const handleDeleteOrder = async (orderId: string) => {
     if (window.confirm('Are you sure you want to delete this order?')) {
       try {
+        console.log('Deleting order with ID:', orderId);
+
         // Try to delete from database via API
         await salesAPI.deleteOrder(orderId);
 
@@ -920,10 +938,10 @@ const Sales: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['orders'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
-        toast.success('Order deleted from database successfully');
-      } catch (apiError) {
-        // API not available, deleting locally
-        toast.success('Order deleted successfully (local only)');
+        toast.success('Order deleted successfully!');
+      } catch (apiError: any) {
+        console.error('API Error deleting order:', apiError);
+        toast.error(`Failed to delete order: ${apiError.response?.data?.error || apiError.message || 'Unknown error'}`);
       }
     }
   };

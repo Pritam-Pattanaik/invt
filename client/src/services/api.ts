@@ -304,6 +304,16 @@ export const salesAPI = {
   updateOrder: (id: string, data: {
     status?: string;
     paymentStatus?: string;
+    customerName?: string;
+    customerPhone?: string;
+    customerAddress?: string;
+    orderDate?: string;
+    deliveryDate?: string;
+    items?: Array<{
+      productId: string;
+      quantity: number;
+      price: number;
+    }>;
   }) => api.put(`/sales/orders/${id}`, data),
 
   deleteOrder: (id: string) => api.delete(`/sales/orders/${id}`),
