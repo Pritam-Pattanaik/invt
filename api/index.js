@@ -17,6 +17,7 @@ const userRoutes = require('../server/src/routes/users');
 
 // Import middleware
 const errorHandler = require('../server/src/middleware/errorHandler');
+const { authenticateToken } = require('../server/src/middleware/auth');
 
 const app = express();
 
@@ -185,15 +186,15 @@ app.get('/db-status', async (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/sales', salesRoutes);
-app.use('/api/reports', reportsRoutes);
-app.use('/api/manufacturing', manufacturingRoutes);
-app.use('/api/finance', financeRoutes);
-app.use('/api/franchises', franchiseRoutes);
-app.use('/api/counters', counterRoutes);
-app.use('/api/hr', hrRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/sales', authenticateToken, salesRoutes);
+app.use('/api/reports', authenticateToken, reportsRoutes);
+app.use('/api/manufacturing', authenticateToken, manufacturingRoutes);
+app.use('/api/finance', authenticateToken, financeRoutes);
+app.use('/api/franchises', authenticateToken, franchiseRoutes);
+app.use('/api/counters', authenticateToken, counterRoutes);
+app.use('/api/hr', authenticateToken, hrRoutes);
+app.use('/api/settings', authenticateToken, settingsRoutes);
+app.use('/api/users', authenticateToken, userRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

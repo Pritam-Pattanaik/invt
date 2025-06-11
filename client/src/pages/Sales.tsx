@@ -98,18 +98,19 @@ const Sales: React.FC = () => {
         const allOrders = response.data || [];
         console.log('All orders from API:', allOrders.length, allOrders);
 
-        // Return all orders for now, filtering will be done in useMemo
-        return allOrders;
+        // Ensure we return an array
+        return Array.isArray(allOrders) ? allOrders : [];
       } catch (error) {
         console.error('Orders API error:', error);
         // Orders API not available, using mock data
         const mockData = getMockOrders();
         console.log('Using mock orders data:', mockData.length);
-        return mockData;
+        return Array.isArray(mockData) ? mockData : [];
       }
     },
     enabled: !!localStorage.getItem('accessToken'), // Only run if authenticated
     staleTime: 30000, // 30 seconds
+    retry: 2, // Retry failed requests
   });
 
   // Advance Orders Query
@@ -126,13 +127,26 @@ const Sales: React.FC = () => {
         });
 
         const allOrders = response.data || [];
+
+        // Ensure we have an array before filtering
+        if (!Array.isArray(allOrders)) {
+          console.warn('Advance orders API returned non-array:', allOrders);
+          return [];
+        }
+
         return allOrders.filter((order: any) => {
           const orderDeliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : '';
           return orderDeliveryDate > today;
         });
       } catch (error) {
         // Advance Orders API not available, using mock data
-        return getMockOrders().filter((order: Order) => {
+        const mockData = getMockOrders();
+        if (!Array.isArray(mockData)) {
+          console.warn('Mock orders is not an array:', mockData);
+          return [];
+        }
+
+        return mockData.filter((order: Order) => {
           const today = new Date().toISOString().split('T')[0];
           const orderDeliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : '';
           return orderDeliveryDate > today;
@@ -157,17 +171,19 @@ const Sales: React.FC = () => {
         const allTransactions = response.data || [];
         console.log('All POS transactions from API:', allTransactions.length, allTransactions);
 
-        return allTransactions;
+        // Ensure we return an array
+        return Array.isArray(allTransactions) ? allTransactions : [];
       } catch (error) {
         console.error('POS API error:', error);
         // POS API not available, using mock data
         const mockData = getMockPOS();
         console.log('Using mock POS data:', mockData.length);
-        return mockData;
+        return Array.isArray(mockData) ? mockData : [];
       }
     },
     enabled: !!localStorage.getItem('accessToken'), // Only run if authenticated
     staleTime: 30000, // 30 seconds
+    retry: 2, // Retry failed requests
   });
 
   const { data: products = [] } = useQuery({
@@ -188,6 +204,13 @@ const Sales: React.FC = () => {
   // Additional client-side filtering to ensure only today's orders are shown
   const todaysOrders = React.useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
+
+    // Ensure orders is an array before filtering
+    if (!Array.isArray(orders)) {
+      console.warn('Orders is not an array:', orders);
+      return [];
+    }
+
     return orders.filter((order: any) => {
       if (!order.deliveryDate) return false;
 
@@ -223,6 +246,13 @@ const Sales: React.FC = () => {
   // Additional client-side filtering to ensure only today's POS transactions are shown
   const todaysPOSTransactions = React.useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
+
+    // Ensure posTransactions is an array before filtering
+    if (!Array.isArray(posTransactions)) {
+      console.warn('POS Transactions is not an array:', posTransactions);
+      return [];
+    }
+
     return posTransactions.filter((transaction: any) => {
       if (!transaction.transactionDate && !transaction.createdAt) return false;
 
@@ -1447,8 +1477,8 @@ const Sales: React.FC = () => {
                       <span className="text-gray-700">Cash</span>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">₹{todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'CASH').reduce((sum: number, transaction: any) => sum + (parseFloat(transaction?.totalAmount) || 0), 0).toLocaleString('en-IN')}</p>
-                      <p className="text-sm text-gray-500">{todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'CASH').length.toLocaleString('en-IN')} transactions</p>
+                      <p className="font-semibold text-gray-900">₹{(Array.isArray(todaysPOSTransactions) ? todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'CASH').reduce((sum: number, transaction: any) => sum + (parseFloat(transaction?.totalAmount) || 0), 0) : 0).toLocaleString('en-IN')}</p>
+                      <p className="text-sm text-gray-500">{(Array.isArray(todaysPOSTransactions) ? todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'CASH').length : 0).toLocaleString('en-IN')} transactions</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1457,8 +1487,8 @@ const Sales: React.FC = () => {
                       <span className="text-gray-700">Card</span>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">₹{todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'CARD').reduce((sum: number, transaction: any) => sum + (parseFloat(transaction?.totalAmount) || 0), 0).toLocaleString('en-IN')}</p>
-                      <p className="text-sm text-gray-500">{todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'CARD').length.toLocaleString('en-IN')} transactions</p>
+                      <p className="font-semibold text-gray-900">₹{(Array.isArray(todaysPOSTransactions) ? todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'CARD').reduce((sum: number, transaction: any) => sum + (parseFloat(transaction?.totalAmount) || 0), 0) : 0).toLocaleString('en-IN')}</p>
+                      <p className="text-sm text-gray-500">{(Array.isArray(todaysPOSTransactions) ? todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'CARD').length : 0).toLocaleString('en-IN')} transactions</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1467,8 +1497,8 @@ const Sales: React.FC = () => {
                       <span className="text-gray-700">UPI</span>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">₹{todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'UPI').reduce((sum: number, transaction: any) => sum + (parseFloat(transaction?.totalAmount) || 0), 0).toLocaleString('en-IN')}</p>
-                      <p className="text-sm text-gray-500">{todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'UPI').length.toLocaleString('en-IN')} transactions</p>
+                      <p className="font-semibold text-gray-900">₹{(Array.isArray(todaysPOSTransactions) ? todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'UPI').reduce((sum: number, transaction: any) => sum + (parseFloat(transaction?.totalAmount) || 0), 0) : 0).toLocaleString('en-IN')}</p>
+                      <p className="text-sm text-gray-500">{(Array.isArray(todaysPOSTransactions) ? todaysPOSTransactions.filter((t: any) => t?.paymentMethod === 'UPI').length : 0).toLocaleString('en-IN')} transactions</p>
                     </div>
                   </div>
                 </div>
