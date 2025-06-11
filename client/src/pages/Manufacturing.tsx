@@ -224,9 +224,12 @@ const ProductsPage: React.FC = () => {
     queryKey: ['manufacturing-products'],
     queryFn: async () => {
       try {
+        console.log('Manufacturing: Fetching products...');
         const response = await manufacturingAPI.getProducts();
+        console.log('Manufacturing: Products API response:', response);
         return response;
       } catch (error: any) {
+        console.error('Manufacturing: Products API error:', error);
         // If 401 error, check if user is actually authenticated
         if (error.response?.status === 401) {
           const token = localStorage.getItem('accessToken');
@@ -246,8 +249,17 @@ const ProductsPage: React.FC = () => {
     retry: false, // Don't retry to avoid confusion
   });
 
-  // Use API data directly
-  const products = productsResponse?.data || [];
+  // Extract products with proper nested structure handling
+  const products = React.useMemo(() => {
+    console.log('Manufacturing: Processing products response:', productsResponse);
+
+    // Handle nested API response structure: { data: { data: products[], pagination: {...} } }
+    const productsData = productsResponse?.data?.data || productsResponse?.data || [];
+    console.log('Manufacturing: Extracted products data:', productsData);
+
+    // Ensure we always return an array
+    return Array.isArray(productsData) ? productsData : [];
+  }, [productsResponse]);
 
   // Update product mutation - database only
   const updateProductMutation = useMutation({
@@ -509,7 +521,7 @@ const ProductsPage: React.FC = () => {
           </button>
         </div>
 
-        {products.length === 0 ? (
+        {!Array.isArray(products) || products.length === 0 ? (
           <div className="text-center py-12">
             <div className="bg-gray-50 rounded-lg p-8 max-w-md mx-auto">
               <div className="flex items-center justify-center mb-4">
@@ -517,21 +529,28 @@ const ProductsPage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Products Found</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {!Array.isArray(products) ? 'Loading Products...' : 'No Products Found'}
+              </h3>
               <p className="text-gray-600 mb-4">
-                Get started by adding your first product to the catalog.
+                {!Array.isArray(products)
+                  ? 'Please wait while we load your products.'
+                  : 'Get started by adding your first product to the catalog.'
+                }
               </p>
-              <button
-                onClick={handleAddProduct}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Add Your First Product
-              </button>
+              {Array.isArray(products) && (
+                <button
+                  onClick={handleAddProduct}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Add Your First Product
+                </button>
+              )}
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map((product: any) => (
+            {Array.isArray(products) && products.map((product: any) => (
               <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold text-gray-900">{product.name}</h4>
