@@ -613,12 +613,16 @@ const Sales: React.FC = () => {
         };
       });
 
+      // Convert dates to ISO format for API validation
+      const orderDate = orderForm.orderDate ? new Date(orderForm.orderDate).toISOString() : new Date().toISOString();
+      const deliveryDate = orderForm.deliveryDate ? new Date(orderForm.deliveryDate).toISOString() : new Date().toISOString();
+
       const orderData = {
         customerName: orderForm.customerName.trim(),
         customerPhone: orderForm.customerPhone.trim(),
         customerAddress: orderForm.customerAddress.trim(),
-        orderDate: orderForm.orderDate,
-        deliveryDate: orderForm.deliveryDate,
+        orderDate,
+        deliveryDate,
         items: apiItems  // Use API-compatible format
       };
 
@@ -695,9 +699,12 @@ const Sales: React.FC = () => {
         };
       });
 
+      // Convert date to ISO format for API validation
+      const transactionDate = posForm.transactionDate ? new Date(posForm.transactionDate).toISOString() : new Date().toISOString();
+
       const transactionData = {
         customerName: customerName,
-        transactionDate: posForm.transactionDate,
+        transactionDate,
         items: apiItems,  // Use API-compatible format
         paymentMethod: posForm.paymentMethod,
         cashierName: posForm.cashierName
@@ -785,13 +792,17 @@ const Sales: React.FC = () => {
         return sum + (product ? product.price * item.quantity : 0);
       }, 0);
 
+      // Convert dates to ISO format for API validation
+      const orderDate = orderForm.orderDate ? new Date(orderForm.orderDate).toISOString() : undefined;
+      const deliveryDate = orderForm.deliveryDate ? new Date(orderForm.deliveryDate).toISOString() : undefined;
+
       // Prepare update data
       const updateData = {
         customerName: orderForm.customerName,
         customerPhone: orderForm.customerPhone,
         customerAddress: orderForm.customerAddress,
-        orderDate: orderForm.orderDate,
-        deliveryDate: orderForm.deliveryDate,
+        orderDate,
+        deliveryDate,
         items: orderForm.items.map(item => {
           const product = products && Array.isArray(products) ? products.find(p => p?.id === item.productId) : null;
           return {
@@ -882,9 +893,12 @@ const Sales: React.FC = () => {
         };
       });
 
+      // Convert date to ISO format for API validation
+      const transactionDate = posForm.transactionDate ? new Date(posForm.transactionDate).toISOString() : undefined;
+
       const updateData = {
         customerName: posForm.customerName.trim() || undefined,
-        transactionDate: posForm.transactionDate,
+        transactionDate,
         items: apiItems,
         paymentMethod: posForm.paymentMethod,
         cashierName: posForm.cashierName
