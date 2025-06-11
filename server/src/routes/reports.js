@@ -6,6 +6,106 @@ const { requireMinRole } = require('../middleware/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Debug endpoint to check database data
+router.get('/debug', requireMinRole('MANAGER'), async (req, res) => {
+  try {
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+    console.log('Debug: Date range:', {
+      today: today.toISOString(),
+      startOfDay: startOfDay.toISOString(),
+      endOfDay: endOfDay.toISOString()
+    });
+
+    const [
+      allProducts,
+      allOrders,
+      allPOSTransactions,
+      todayOrdersByCreated,
+      todayOrdersByDelivery,
+      todayPOSByTransaction,
+      todayPOSByCreated
+    ] = await Promise.all([
+      prisma.product.findMany({ select: { id: true, name: true, isActive: true } }),
+      prisma.order.findMany({
+        select: {
+          id: true,
+          orderNumber: true,
+          finalAmount: true,
+          createdAt: true,
+          deliveryDate: true,
+          status: true
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      }),
+      prisma.pOSTransaction.findMany({
+        select: {
+          id: true,
+          transactionNumber: true,
+          totalAmount: true,
+          createdAt: true,
+          transactionDate: true
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      }),
+      prisma.order.findMany({
+        where: { createdAt: { gte: startOfDay, lt: endOfDay } },
+        select: { id: true, orderNumber: true, finalAmount: true, createdAt: true, status: true }
+      }),
+      prisma.order.findMany({
+        where: { deliveryDate: { gte: startOfDay, lt: endOfDay } },
+        select: { id: true, orderNumber: true, finalAmount: true, deliveryDate: true, status: true }
+      }),
+      prisma.pOSTransaction.findMany({
+        where: { transactionDate: { gte: startOfDay, lt: endOfDay } },
+        select: { id: true, transactionNumber: true, totalAmount: true, transactionDate: true }
+      }),
+      prisma.pOSTransaction.findMany({
+        where: { createdAt: { gte: startOfDay, lt: endOfDay } },
+        select: { id: true, transactionNumber: true, totalAmount: true, createdAt: true }
+      })
+    ]);
+
+    res.json({
+      message: 'Debug data retrieved successfully',
+      data: {
+        dateInfo: {
+          today: today.toISOString(),
+          startOfDay: startOfDay.toISOString(),
+          endOfDay: endOfDay.toISOString()
+        },
+        counts: {
+          totalProducts: allProducts.length,
+          totalOrders: allOrders.length,
+          totalPOSTransactions: allPOSTransactions.length,
+          todayOrdersByCreated: todayOrdersByCreated.length,
+          todayOrdersByDelivery: todayOrdersByDelivery.length,
+          todayPOSByTransaction: todayPOSByTransaction.length,
+          todayPOSByCreated: todayPOSByCreated.length
+        },
+        samples: {
+          products: allProducts.slice(0, 3),
+          orders: allOrders.slice(0, 3),
+          posTransactions: allPOSTransactions.slice(0, 3),
+          todayOrdersByDelivery,
+          todayPOSByTransaction
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to retrieve debug data',
+      details: error.message
+    });
+  }
+});
+
 // Dashboard overview
 router.get('/dashboard', requireMinRole('MANAGER'), async (req, res) => {
   try {
