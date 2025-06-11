@@ -42,6 +42,9 @@ router.get('/products', [
       ];
     }
 
+    console.log(`[GET PRODUCTS] Query parameters:`, { category, isActive, search });
+    console.log(`[GET PRODUCTS] Where clause:`, where);
+
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
@@ -66,6 +69,13 @@ router.get('/products', [
       }),
       prisma.product.count({ where }),
     ]);
+
+    console.log(`[GET PRODUCTS] Found ${products.length} products out of ${total} total`);
+    console.log(`[GET PRODUCTS] Products summary:`, products.map(p => ({
+      id: p.id,
+      name: p.name,
+      isActive: p.isActive
+    })));
 
     res.json({
       message: 'Products retrieved successfully',
@@ -208,6 +218,7 @@ router.put('/products/:id', requireMinRole('MANAGER'), [
 router.delete('/products/:id', requireMinRole('MANAGER'), async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`[DELETE PRODUCT] Starting deletion process for product ID: ${id}`);
 
     // Check if product exists and has any dependencies
     const product = await prisma.product.findUnique({
@@ -219,18 +230,38 @@ router.delete('/products/:id', requireMinRole('MANAGER'), async (req, res) => {
       },
     });
 
+    console.log(`[DELETE PRODUCT] Product found:`, {
+      id: product?.id,
+      name: product?.name,
+      isActive: product?.isActive,
+      orderItemsCount: product?.orderItems?.length || 0,
+      recipesCount: product?.recipes?.length || 0,
+      productionBatchesCount: product?.productionBatches?.length || 0
+    });
+
     if (!product) {
+      console.log(`[DELETE PRODUCT] Product not found with ID: ${id}`);
       return res.status(404).json({
         error: 'Product not found',
       });
     }
 
     // Check if product has any dependencies
-    if (product.orderItems.length > 0 || product.recipes.length > 0 || product.productionBatches.length > 0) {
+    const hasDependencies = product.orderItems.length > 0 || product.recipes.length > 0 || product.productionBatches.length > 0;
+    console.log(`[DELETE PRODUCT] Has dependencies: ${hasDependencies}`);
+
+    if (hasDependencies) {
       // Soft delete - mark as inactive instead of hard delete
+      console.log(`[DELETE PRODUCT] Performing soft delete (marking as inactive)`);
       const updatedProduct = await prisma.product.update({
         where: { id },
         data: { isActive: false },
+      });
+
+      console.log(`[DELETE PRODUCT] Soft delete completed:`, {
+        id: updatedProduct.id,
+        name: updatedProduct.name,
+        isActive: updatedProduct.isActive
       });
 
       return res.json({
@@ -240,15 +271,18 @@ router.delete('/products/:id', requireMinRole('MANAGER'), async (req, res) => {
     }
 
     // Hard delete if no dependencies
+    console.log(`[DELETE PRODUCT] Performing hard delete (removing from database)`);
     await prisma.product.delete({
       where: { id },
     });
+
+    console.log(`[DELETE PRODUCT] Hard delete completed for product ID: ${id}`);
 
     res.json({
       message: 'Product deleted successfully',
     });
   } catch (error) {
-    console.error('Delete product error:', error);
+    console.error('[DELETE PRODUCT] Error during deletion:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to delete product',
@@ -446,6 +480,55 @@ router.get('/inventory', [
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to retrieve inventory',
+    });
+  }
+});
+
+// Test endpoint to verify database operations
+router.get('/test-db', async (req, res) => {
+  try {
+    console.log('[TEST DB] Testing database connection and operations...');
+
+    // Test 1: Count all products
+    const totalProducts = await prisma.product.count();
+    console.log(`[TEST DB] Total products in database: ${totalProducts}`);
+
+    // Test 2: Count active products
+    const activeProducts = await prisma.product.count({ where: { isActive: true } });
+    console.log(`[TEST DB] Active products in database: ${activeProducts}`);
+
+    // Test 3: Count inactive products
+    const inactiveProducts = await prisma.product.count({ where: { isActive: false } });
+    console.log(`[TEST DB] Inactive products in database: ${inactiveProducts}`);
+
+    // Test 4: Get all products with their status
+    const allProducts = await prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    console.log('[TEST DB] All products with status:', allProducts);
+
+    res.json({
+      message: 'Database test completed',
+      data: {
+        totalProducts,
+        activeProducts,
+        inactiveProducts,
+        allProducts
+      }
+    });
+  } catch (error) {
+    console.error('[TEST DB] Database test error:', error);
+    res.status(500).json({
+      error: 'Database test failed',
+      message: error.message
     });
   }
 });
