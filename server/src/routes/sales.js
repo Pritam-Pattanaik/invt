@@ -146,13 +146,14 @@ router.post('/orders', [
   body('customerAddress').optional().trim(),
   body('orderDate').isISO8601(),
   body('deliveryDate').isISO8601(),
+  body('deliveryTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/), // HH:MM format
   body('items').isArray({ min: 1 }),
   body('items.*.productId').notEmpty(),
   body('items.*.quantity').isInt({ min: 1 }),
   body('items.*.price').isFloat({ min: 0 }),
 ], handleValidationErrors, async (req, res) => {
   try {
-    const { customerName, customerPhone, customerAddress, orderDate, deliveryDate, items } = req.body;
+    const { customerName, customerPhone, customerAddress, orderDate, deliveryDate, deliveryTime, items } = req.body;
 
     // Find or create customer
     let customer = await prisma.customer.findFirst({
@@ -184,6 +185,7 @@ router.post('/orders', [
         customerId: customer.id,
         orderDate: new Date(orderDate),
         deliveryDate: new Date(deliveryDate),
+        deliveryTime: deliveryTime || null,
         totalAmount,
         finalAmount: totalAmount, // Add finalAmount field (same as totalAmount for now)
         status: 'PENDING',
@@ -227,6 +229,7 @@ router.put('/orders/:id', [
   body('customerAddress').optional().trim(),
   body('orderDate').optional().isISO8601(),
   body('deliveryDate').optional().isISO8601(),
+  body('deliveryTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/), // HH:MM format
   body('items').optional().isArray(),
   body('items.*.productId').optional().notEmpty(),
   body('items.*.quantity').optional().isInt({ min: 1 }),
@@ -242,6 +245,7 @@ router.put('/orders/:id', [
       customerAddress,
       orderDate,
       deliveryDate,
+      deliveryTime,
       items
     } = req.body;
 
@@ -304,6 +308,7 @@ router.put('/orders/:id', [
       if (paymentStatus) updateData.paymentStatus = paymentStatus;
       if (orderDate) updateData.orderDate = new Date(orderDate);
       if (deliveryDate) updateData.deliveryDate = new Date(deliveryDate);
+      if (deliveryTime !== undefined) updateData.deliveryTime = deliveryTime;
       if (customerId !== currentOrder.customerId) updateData.customerId = customerId;
 
       // Update items if provided

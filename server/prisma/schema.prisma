@@ -80,11 +80,13 @@ model User {
   updatedAt   DateTime   @updatedAt
 
   // Relations
-  createdFranchises Franchise[] @relation("CreatedBy")
-  managedFranchises Franchise[] @relation("ManagedBy")
   createdOrders     Order[]     @relation("CreatedBy")
   qualityChecks     QualityCheck[]
   inventoryTransactions InventoryTransaction[]
+  createdHotels     Hotel[]     @relation("CreatedBy")
+  managedHotels     Hotel[]     @relation("ManagedBy")
+  createdHostels    Hostel[]    @relation("CreatedBy")
+  managedHostels    Hostel[]    @relation("ManagedBy")
 
   @@map("users")
 }
@@ -108,7 +110,6 @@ model Product {
   inventoryItems    InventoryItem[]
   productionBatches ProductionBatch[]
   orderItems        OrderItem[]
-  franchiseInventory FranchiseInventory[]
   posTransactionItems POSTransactionItem[]
 
   @@map("products")
@@ -250,21 +251,20 @@ model QualityCheck {
   @@map("quality_checks")
 }
 
-// Franchise Management Models
-model Franchise {
+// Hotel Management Models
+model Hotel {
   id              String    @id @default(cuid())
   name            String
   code            String    @unique
-  ownerName       String
-  ownerEmail      String
-  ownerPhone      String
+  managerName     String
+  managerEmail    String
+  managerPhone    String
   address         String
   city            String
   state           String
   pincode         String
   gstNumber       String?
   licenseNumber   String?
-  royaltyRate     Decimal   @db.Decimal(5, 2) // Percentage
   status          String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
   openingDate     DateTime?
   createdBy       String
@@ -275,48 +275,125 @@ model Franchise {
   // Relations
   creator         User      @relation("CreatedBy", fields: [createdBy], references: [id])
   manager         User?     @relation("ManagedBy", fields: [managedBy], references: [id])
-  counters        Counter[]
-  inventory       FranchiseInventory[]
-  sales           Sale[]
-  royaltyPayments RoyaltyPayment[]
+  orders          HotelOrder[]
 
-  @@map("franchises")
+  @@map("hotels")
+}
+
+// Hostel Management Models
+model Hostel {
+  id              String    @id @default(cuid())
+  name            String
+  code            String    @unique
+  managerName     String
+  managerEmail    String
+  managerPhone    String
+  address         String
+  city            String
+  state           String
+  pincode         String
+  gstNumber       String?
+  licenseNumber   String?
+  status          String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  openingDate     DateTime?
+  createdBy       String
+  managedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  creator         User      @relation("CreatedBy", fields: [createdBy], references: [id])
+  manager         User?     @relation("ManagedBy", fields: [managedBy], references: [id])
+  orders          HostelOrder[]
+
+  @@map("hostels")
 }
 
 model Counter {
   id          String   @id @default(cuid())
-  franchiseId String
   name        String
   location    String
+  managerName String?
+  managerPhone String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
-  franchise Franchise @relation(fields: [franchiseId], references: [id])
   orders    Order[]
   sales     Sale[]
+  counterOrders CounterOrder[]
+  counterInventory CounterInventory[]
 
   @@map("counters")
 }
 
-model FranchiseInventory {
+// Hotel Daily Orders
+model HotelOrder {
+  id          String   @id @default(cuid())
+  hotelId     String
+  orderDate   DateTime @default(now())
+  totalQuantity Int
+  totalPackets  Int
+  status      String   @default("DELIVERED") // PENDING, DELIVERED
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  hotel Hotel @relation(fields: [hotelId], references: [id])
+  items HotelOrderItem[]
+
+  @@map("hotel_orders")
+}
+
+model HotelOrderItem {
   id            String   @id @default(cuid())
-  franchiseId   String
-  productId     String
-  currentStock  Int      @default(0)
-  minStock      Int      @default(0)
-  maxStock      Int      @default(100)
-  lastRestocked DateTime?
+  hotelOrderId  String
+  packetSize    Int      // Number of rotis per packet
+  quantity      Int      // Number of packets
+  totalRotis    Int      // packetSize * quantity
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
-  franchise Franchise @relation(fields: [franchiseId], references: [id])
-  product   Product   @relation(fields: [productId], references: [id])
+  hotelOrder HotelOrder @relation(fields: [hotelOrderId], references: [id], onDelete: Cascade)
 
-  @@unique([franchiseId, productId])
-  @@map("franchise_inventory")
+  @@map("hotel_order_items")
+}
+
+// Hostel Daily Orders
+model HostelOrder {
+  id          String   @id @default(cuid())
+  hostelId    String
+  orderDate   DateTime @default(now())
+  totalQuantity Int
+  totalPackets  Int
+  status      String   @default("DELIVERED") // PENDING, DELIVERED
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  hostel Hostel @relation(fields: [hostelId], references: [id])
+  items  HostelOrderItem[]
+
+  @@map("hostel_orders")
+}
+
+model HostelOrderItem {
+  id             String   @id @default(cuid())
+  hostelOrderId  String
+  packetSize     Int      // Number of rotis per packet
+  quantity       Int      // Number of packets
+  totalRotis     Int      // packetSize * quantity
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  hostelOrder HostelOrder @relation(fields: [hostelOrderId], references: [id], onDelete: Cascade)
+
+  @@map("hostel_order_items")
 }
 
 model Customer {
@@ -345,6 +422,7 @@ model Order {
   customerId    String?
   orderDate     DateTime    @default(now())
   deliveryDate  DateTime?
+  deliveryTime  String?     // Time in HH:MM format (e.g., "14:30")
   status        OrderStatus @default(PENDING)
   paymentStatus String      @default("PENDING") // PENDING, PAID, PARTIAL
   totalAmount   Decimal     @db.Decimal(10, 2)
@@ -363,6 +441,12 @@ model Order {
   creator   User?       @relation("CreatedBy", fields: [createdBy], references: [id])
   items     OrderItem[]
 
+  // Indexes for dashboard performance
+  @@index([deliveryDate])
+  @@index([createdAt])
+  @@index([status])
+  @@index([deliveryDate, status])
+  @@index([createdAt, status])
   @@map("orders")
 }
 
@@ -380,12 +464,14 @@ model OrderItem {
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
 
+  // Indexes for top products performance
+  @@index([productId])
+  @@index([createdAt])
   @@map("order_items")
 }
 
 model Sale {
   id          String   @id @default(cuid())
-  franchiseId String
   counterId   String
   date        DateTime @default(now())
   totalSales  Decimal  @db.Decimal(10, 2)
@@ -395,34 +481,69 @@ model Sale {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  franchise Franchise @relation(fields: [franchiseId], references: [id])
   counter   Counter   @relation(fields: [counterId], references: [id])
 
-  @@unique([franchiseId, counterId, date])
+  @@unique([counterId, date])
   @@map("sales")
 }
 
-model RoyaltyPayment {
-  id          String        @id @default(cuid())
-  franchiseId String
-  month       Int           // 1-12
-  year        Int
-  totalSales  Decimal       @db.Decimal(10, 2)
-  royaltyRate Decimal       @db.Decimal(5, 2)
-  royaltyAmount Decimal     @db.Decimal(10, 2)
-  status      PaymentStatus @default(PENDING)
-  dueDate     DateTime
-  paidDate    DateTime?
+// Counter Order Management
+model CounterOrder {
+  id          String   @id @default(cuid())
+  counterId   String
+  orderDate   DateTime @default(now())
+  totalQuantity Int
+  totalPackets  Int
+  status      String   @default("DELIVERED") // PENDING, DELIVERED
   notes       String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  franchise Franchise @relation(fields: [franchiseId], references: [id])
+  counter Counter @relation(fields: [counterId], references: [id])
+  items   CounterOrderItem[]
 
-  @@unique([franchiseId, month, year])
-  @@map("royalty_payments")
+  @@map("counter_orders")
 }
+
+model CounterOrderItem {
+  id            String   @id @default(cuid())
+  counterOrderId String
+  packetSize    Int      // Number of rotis per packet
+  quantity      Int      // Number of packets
+  totalRotis    Int      // packetSize * quantity
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  counterOrder CounterOrder @relation(fields: [counterOrderId], references: [id], onDelete: Cascade)
+
+  @@map("counter_order_items")
+}
+
+// Counter Inventory Management
+model CounterInventory {
+  id          String   @id @default(cuid())
+  counterId   String
+  date        DateTime @default(now())
+  packetSize  Int      // Number of rotis per packet
+  totalPackets Int     // Total packets available
+  totalRotis  Int      // packetSize * totalPackets
+  soldPackets Int      @default(0) // Packets sold
+  soldRotis   Int      @default(0) // Rotis sold
+  remainingPackets Int @default(0) // Remaining packets
+  remainingRotis   Int @default(0) // Remaining rotis
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  counter Counter @relation(fields: [counterId], references: [id])
+
+  @@unique([counterId, date, packetSize])
+  @@map("counter_inventory")
+}
+
+
 
 // Additional Models for Complete ERP System
 
@@ -441,6 +562,9 @@ model POSTransaction {
   // Relations
   transactionItems POSTransactionItem[]
 
+  // Indexes for dashboard performance
+  @@index([transactionDate])
+  @@index([createdAt])
   @@map("pos_transactions")
 }
 
