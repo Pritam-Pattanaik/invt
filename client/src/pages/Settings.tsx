@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import anime from 'animejs';
-import { formatDate, formatDateTime } from '../utils/dateUtils';
+import { formatDateTime } from '../utils/dateUtils';
 
 interface User {
   id: string;

@@ -19,6 +19,7 @@ interface Hostel {
   createdAt: string;
 }
 
+// @ts-ignore - Interface used for future implementation
 interface HostelOrder {
   id: string;
   hostelId: string;
@@ -39,6 +40,7 @@ interface HostelOrderItem {
 const Hostels: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  // @ts-ignore - User context for future implementation
   const { user } = useAuth();
   const [currentView, setCurrentView] = useState<'list' | 'add' | 'orders'>('list');
   const [hostels, setHostels] = useState<Hostel[]>([]);
@@ -413,7 +415,7 @@ const AddHostelPage: React.FC<{ onHostelAdded: () => void }> = ({ onHostelAdded 
 };
 
 // Hostel Orders Component
-const HostelOrdersPage: React.FC<{ hostels: Hostel[] }> = ({ hostels }) => {
+const HostelOrdersPage: React.FC<{ hostels: Hostel[] }> = () => {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">

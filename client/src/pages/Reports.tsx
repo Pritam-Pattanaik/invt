@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import anime from 'animejs';
 import toast from 'react-hot-toast';
 import { PDFGenerator } from '../utils/pdfGenerator';
-import { formatDate, getCurrentDate } from '../utils/dateUtils';
+import { getCurrentDate } from '../utils/dateUtils';
 
 const Reports: React.FC = () => {
   const [currentView, setCurrentView] = useState<'overview' | 'sales' | 'inventory' | 'financial' | 'custom'>('overview');

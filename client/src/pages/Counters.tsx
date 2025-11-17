@@ -28,8 +28,11 @@ interface CounterFormData {
   manager: string;
   contactNumber: string;
   address: string;
+  managerName?: string;
+  managerPhone?: string;
 }
 
+// @ts-ignore - Interface used for future implementation
 interface CounterDetailsData {
   date: string;
   input: number;
@@ -245,13 +248,11 @@ const Counters: React.FC = () => {
     }
 
     try {
-      // Get the first franchise ID from existing counters or use a default
-      const franchiseId = counters[0]?.franchise?.id || 'cmbhvemc1000j3fkkraqs714z';
-
       const response = await countersAPI.createCounter({
-        franchiseId,
         name: formData.name.trim(),
-        location: formData.address.trim()
+        location: formData.address.trim(),
+        managerName: formData.managerName?.trim(),
+        managerPhone: formData.managerPhone?.trim()
       });
 
       if (response.data) {

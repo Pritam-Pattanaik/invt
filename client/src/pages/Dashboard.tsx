@@ -4,8 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import anime from 'animejs';
 import { reportsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import LoadingSpinner from '../components/LoadingSpinner';
-import { formatDate, getCurrentDate } from '../utils/dateUtils';
+import { formatDate } from '../utils/dateUtils';
 import {
   CurrencyRupeeIcon,
   ShoppingCartIcon,
@@ -41,7 +40,7 @@ const Dashboard: React.FC = () => {
 
         const apiPromise = reportsAPI.getDashboard();
 
-        const response = await Promise.race([apiPromise, timeoutPromise]);
+        const response: any = await Promise.race([apiPromise, timeoutPromise]);
 
         const endTime = performance.now();
         console.log(`Dashboard: API call completed in ${endTime - startTime}ms`);
@@ -162,8 +161,9 @@ const Dashboard: React.FC = () => {
 
   // Extract the actual data from the API response, with instant fallback
   const data = React.useMemo(() => {
-    if (dashboardData?.data?.data) {
-      return dashboardData.data.data;
+    const typedData = dashboardData as any;
+    if (typedData?.data?.data) {
+      return typedData.data.data;
     } else {
       return fallbackData;
     }
