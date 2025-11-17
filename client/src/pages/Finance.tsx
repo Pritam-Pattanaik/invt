@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import anime from 'animejs';
 import toast from 'react-hot-toast';
 import { PDFGenerator } from '../utils/pdfGenerator';
+import { formatDate } from '../utils/dateUtils';
 
 interface Account {
   id: string;
@@ -489,7 +490,7 @@ const Finance: React.FC = () => {
         expense.title,
         expense.category,
         `₹${expense.amount.toLocaleString()}`,
-        new Date(expense.date).toLocaleDateString('en-IN'),
+        formatDate(expense.date),
         expense.paymentMethod,
         expense.status
       ]);
@@ -698,7 +699,7 @@ const Finance: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-4 px-6 text-right font-medium text-gray-900">₹{expense.amount.toLocaleString()}</td>
-                      <td className="py-4 px-6 text-gray-600">{new Date(expense.date).toLocaleDateString()}</td>
+                      <td className="py-4 px-6 text-gray-600">{formatDate(expense.date)}</td>
                       <td className="py-4 px-6">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           expense.paymentMethod === 'CASH' ? 'bg-green-100 text-green-800' :
@@ -922,7 +923,7 @@ const Finance: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-gray-900">₹{tax.amount.toLocaleString()}</p>
-                      <p className="text-sm text-yellow-600">Due: {new Date(tax.dueDate).toLocaleDateString()}</p>
+                      <p className="text-sm text-yellow-600">Due: {formatDate(tax.dueDate)}</p>
                     </div>
                   </div>
                 ))}
@@ -962,11 +963,11 @@ const Finance: React.FC = () => {
                       <td className="py-4 px-6 text-right font-medium text-gray-900">₹{tax.amount.toLocaleString()}</td>
                       <td className="py-4 px-6 text-gray-600">
                         <span className={new Date(tax.dueDate) < new Date() && tax.status === 'PENDING' ? 'text-red-600 font-medium' : ''}>
-                          {new Date(tax.dueDate).toLocaleDateString()}
+                          {formatDate(tax.dueDate)}
                         </span>
                       </td>
                       <td className="py-4 px-6 text-gray-600">
-                        {tax.filedDate ? new Date(tax.filedDate).toLocaleDateString() : 'Not filed'}
+                        {tax.filedDate ? formatDate(tax.filedDate) : 'Not filed'}
                       </td>
                       <td className="py-4 px-6 text-center">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import anime from 'animejs';
+import { formatDate, formatDateTime } from '../utils/dateUtils';
 
 interface User {
   id: string;
@@ -819,7 +820,7 @@ const Settings: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-4 px-6 text-gray-600">
-                        {new Date(backup.createdAt).toLocaleDateString()} {new Date(backup.createdAt).toLocaleTimeString()}
+                        {formatDateTime(backup.createdAt)}
                       </td>
                       <td className="py-4 px-6 text-center">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

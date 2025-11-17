@@ -244,56 +244,65 @@ async function main() {
 
   console.log('✅ Customers created');
 
-  // Create a sample franchise
-  const franchise = await prisma.franchise.upsert({
-    where: { code: 'RF-DEL-001' },
-    update: {},
-    create: {
-      name: 'Roti Factory - Central Delhi',
-      code: 'RF-DEL-001',
-      ownerName: 'Suresh Gupta',
-      ownerEmail: 'suresh@example.com',
-      ownerPhone: '+91-9876543213',
+  // Create sample hotels
+  const hotel1 = await prisma.hotel.create({
+    data: {
+      name: 'Grand Plaza Hotel',
       address: '100 Commercial Complex, Connaught Place',
       city: 'Delhi',
       state: 'Delhi',
       pincode: '110001',
-      gstNumber: '07AAACR5055K1Z5',
-      licenseNumber: 'DL-FOOD-2023-001',
-      royaltyRate: 8.5,
-      status: 'ACTIVE',
-      openingDate: new Date('2023-01-15'),
-      createdBy: admin.id,
-      managedBy: franchiseManager.id,
+      contactPerson: 'Suresh Gupta',
+      contactPhone: '+91-9876543213',
+      contactEmail: 'suresh@grandplaza.com',
+      isActive: true,
+      createdById: admin.id,
     },
   });
 
-  // Create counters for the franchise
-  const existingCounters = await prisma.counter.findMany({
-    where: { franchiseId: franchise.id }
+  const hostel1 = await prisma.hostel.create({
+    data: {
+      name: 'Student Hostel - Central',
+      address: '45 University Road, Delhi',
+      city: 'Delhi',
+      state: 'Delhi',
+      pincode: '110007',
+      contactPerson: 'Rajesh Kumar',
+      contactPhone: '+91-9876543214',
+      contactEmail: 'rajesh@studenthostel.com',
+      isActive: true,
+      createdById: admin.id,
+    },
   });
+
+  console.log('✅ Hotels and hostels created');
+
+  // Create sample counters
+  const existingCounters = await prisma.counter.findMany();
 
   if (existingCounters.length === 0) {
     const counter1 = await prisma.counter.create({
       data: {
-        franchiseId: franchise.id,
-        name: 'Counter 1',
+        name: 'Counter 1 - Main Factory',
         location: 'Ground Floor - Main Entrance',
+        managerName: 'Amit Sharma',
+        managerPhone: '+91-9876543215',
         isActive: true,
       },
     });
 
     const counter2 = await prisma.counter.create({
       data: {
-        franchiseId: franchise.id,
-        name: 'Counter 2',
+        name: 'Counter 2 - Food Court',
         location: 'First Floor - Food Court',
+        managerName: 'Priya Singh',
+        managerPhone: '+91-9876543216',
         isActive: true,
       },
     });
-  }
 
-  console.log('✅ Franchise and counters created');
+    console.log('✅ Counters created');
+  }
 
   console.log('🎉 Database seeding completed successfully!');
   console.log('\n📋 Default Login Credentials:');

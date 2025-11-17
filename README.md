@@ -1,6 +1,6 @@
 # Roti Factory ERP System
 
-A comprehensive Enterprise Resource Planning (ERP) system designed specifically for roti manufacturing businesses with franchise and counter management capabilities.
+A comprehensive Enterprise Resource Planning (ERP) system designed specifically for roti manufacturing businesses with hotels, hostels, and counter management capabilities.
 
 ## 🏭 Features
 
@@ -10,11 +10,11 @@ A comprehensive Enterprise Resource Planning (ERP) system designed specifically 
 - **Quality Control**: Manage quality checks at various production stages
 - **Equipment Maintenance**: Schedule and track machinery maintenance
 
-### Franchise Management
-- **Franchise Onboarding**: Streamlined setup process for new franchises
-- **Sales Tracking**: Monitor performance across all franchise locations
-- **Inventory Replenishment**: Automated inventory management and ordering
-- **Royalty Management**: Calculate and track royalty payments
+### Hotels & Hostels Management
+- **Hotel/Hostel Onboarding**: Streamlined setup process for new hotels and hostels
+- **Daily Orders Tracking**: Monitor daily roti orders from each establishment
+- **Order Management**: Efficient order processing and delivery tracking
+- **Customer Relationship**: Maintain detailed records of all establishments
 
 ### Counter Management
 - **POS Integration**: Seamless point-of-sale system integration

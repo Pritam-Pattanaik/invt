@@ -85,7 +85,9 @@ app.get('/db-status', async (req, res) => {
     const stats = {
       users: await prisma.user.count(),
       products: await prisma.product.count(),
-      franchises: await prisma.franchise.count(),
+      hotels: await prisma.hotel.count(),
+      hostels: await prisma.hostel.count(),
+      counters: await prisma.counter.count(),
       orders: await prisma.order.count(),
       customers: await prisma.customer.count(),
     };

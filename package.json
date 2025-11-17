@@ -1,7 +1,7 @@
 {
   "name": "roti-factory-erp",
   "version": "1.0.0",
-  "description": "Comprehensive ERP system for Roti Factory with Manufacturing, Franchise, and Counter Management",
+  "description": "Comprehensive ERP system for Roti Factory with Manufacturing, Hotels, Hostels, and Counter Management",
   "main": "server/index.js",
   "scripts": {
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
@@ -25,7 +25,8 @@
     "erp",
     "roti-factory",
     "manufacturing",
-    "franchise",
+    "hotels",
+    "hostels",
     "pos"
   ],
   "author": "Roti Factory ERP Team",

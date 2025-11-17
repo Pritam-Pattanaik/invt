@@ -30,7 +30,8 @@ async function showCurrentData() {
       orderItems: await prisma.orderItem.count(),
       posTransactions: await prisma.pOSTransaction.count(),
       posTransactionItems: await prisma.pOSTransactionItem.count(),
-      franchises: await prisma.franchise.count(),
+      hotels: await prisma.hotel.count(),
+      hostels: await prisma.hostel.count(),
       counters: await prisma.counter.count(),
       inventoryItems: await prisma.inventoryItem.count(),
       recipes: await prisma.recipe.count(),
@@ -61,7 +62,7 @@ async function confirmCleanup() {
   console.log('• All POS transactions');
   console.log('• All customers');
   console.log('• All products and raw materials');
-  console.log('• All franchises and counters');
+  console.log('• All hotels, hostels and counters');
   console.log('• All inventory data');
   console.log('• All production data');
   console.log('• All financial records');
@@ -101,11 +102,15 @@ async function cleanupDatabase() {
         { name: 'Quality Checks', fn: () => tx.qualityCheck?.deleteMany({}) },
         { name: 'Inventory Transactions', fn: () => tx.inventoryTransaction?.deleteMany({}) },
         { name: 'Inventory Items', fn: () => tx.inventoryItem?.deleteMany({}) },
-        { name: 'Franchise Inventory', fn: () => tx.franchiseInventory?.deleteMany({}) },
+        { name: 'Hotel Order Items', fn: () => tx.hotelOrderItem?.deleteMany({}) },
+        { name: 'Hotel Orders', fn: () => tx.hotelOrder?.deleteMany({}) },
+        { name: 'Hostel Order Items', fn: () => tx.hostelOrderItem?.deleteMany({}) },
+        { name: 'Hostel Orders', fn: () => tx.hostelOrder?.deleteMany({}) },
         { name: 'Products', fn: () => tx.product?.deleteMany({}) },
         { name: 'Raw Materials', fn: () => tx.rawMaterial?.deleteMany({}) },
         { name: 'Counters', fn: () => tx.counter?.deleteMany({}) },
-        { name: 'Franchises', fn: () => tx.franchise?.deleteMany({}) },
+        { name: 'Hotels', fn: () => tx.hotel?.deleteMany({}) },
+        { name: 'Hostels', fn: () => tx.hostel?.deleteMany({}) },
         { name: 'Expenses', fn: () => tx.expense?.deleteMany({}) },
         { name: 'Accounts', fn: () => tx.account?.deleteMany({}) },
       ];

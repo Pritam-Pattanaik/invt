@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import anime from 'animejs';
+import { countersAPI } from '../services/api';
+import { formatDate } from '../utils/dateUtils';
 
 interface Counter {
   id: string;
@@ -31,14 +33,41 @@ interface CounterFormData {
 interface CounterDetailsData {
   date: string;
   input: number;
-  output: number;
+  remaining: number;
   sales: number;
   products: Array<{
     name: string;
     input: number;
-    output: number;
+    remaining: number;
     sales: number;
   }>;
+}
+
+interface CounterOrder {
+  id: string;
+  orderDate: string;
+  totalQuantity: number;
+  totalPackets: number;
+  status: string;
+  notes?: string;
+  items: Array<{
+    id: string;
+    packetSize: number;
+    quantity: number;
+    totalRotis: number;
+  }>;
+}
+
+interface CounterInventory {
+  id: string;
+  date: string;
+  packetSize: number;
+  totalPackets: number;
+  totalRotis: number;
+  soldPackets: number;
+  soldRotis: number;
+  remainingPackets: number;
+  remainingRotis: number;
 }
 
 const Counters: React.FC = () => {
@@ -60,6 +89,27 @@ const Counters: React.FC = () => {
   });
   const [reportData, setReportData] = useState<any>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
+  // Counter Order Management
+  const [showAddOrder, setShowAddOrder] = useState(false);
+  const [showRemaining, setShowRemaining] = useState(false);
+  const [showEditCounter, setShowEditCounter] = useState(false);
+  const [counterOrders, setCounterOrders] = useState<CounterOrder[]>([]);
+  const [counterInventory, setCounterInventory] = useState<CounterInventory[]>([]);
+  const [orderForm, setOrderForm] = useState({
+    items: [{ packetSize: 10, quantity: 1 }],
+    notes: ''
+  });
+  const [editCounterForm, setEditCounterForm] = useState({
+    name: '',
+    location: '',
+    isActive: true
+  });
+  const [todaysData, setTodaysData] = useState({
+    totalInput: 0,
+    totalRemaining: 0,
+    totalSales: 0
+  });
 
   // Handle route changes
   useEffect(() => {
@@ -147,12 +197,24 @@ const Counters: React.FC = () => {
   ];
 
   useEffect(() => {
-    // Simulate API call
-    setLoading(true);
-    setTimeout(() => {
-      setCounters(mockCounters);
-      setLoading(false);
-    }, 1000);
+    // Fetch real counters from API
+    const fetchCounters = async () => {
+      setLoading(true);
+      try {
+        const response = await countersAPI.getCounters();
+        if (response.data && response.data.data) {
+          setCounters(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching counters:', error);
+        // Fallback to mock data if API fails
+        setCounters(mockCounters);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCounters();
   }, []);
 
   useEffect(() => {
@@ -168,7 +230,14 @@ const Counters: React.FC = () => {
     }
   }, [currentView, counters]);
 
-  const handleAddCounter = () => {
+  // Fetch counter data when a counter is selected
+  useEffect(() => {
+    if (selectedCounter && currentView === 'details') {
+      fetchCounterData(selectedCounter.id);
+    }
+  }, [selectedCounter, currentView]);
+
+  const handleAddCounter = async () => {
     // Validate form data
     if (!formData.name.trim() || !formData.manager.trim() || !formData.contactNumber.trim() || !formData.address.trim()) {
       alert('Please fill in all required fields');
@@ -176,35 +245,30 @@ const Counters: React.FC = () => {
     }
 
     try {
-      // Simulate adding counter
-      const newCounter: Counter = {
-        id: Date.now().toString(),
+      // Get the first franchise ID from existing counters or use a default
+      const franchiseId = counters[0]?.franchise?.id || 'cmbhvemc1000j3fkkraqs714z';
+
+      const response = await countersAPI.createCounter({
+        franchiseId,
         name: formData.name.trim(),
-        location: formData.address.trim(),
-        isActive: true,
-        franchise: mockCounters[0]?.franchise || {
-          id: '1',
-          name: 'Roti Factory - Central Delhi',
-          code: 'RF-CD-001'
-        },
-        manager: {
-          firstName: formData.manager.trim().split(' ')[0] || '',
-          lastName: formData.manager.trim().split(' ')[1] || '',
-          email: `${formData.manager.toLowerCase().replace(/\s+/g, '.')}@rotifactory.com`,
-          phone: formData.contactNumber.trim()
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+        location: formData.address.trim()
+      });
 
-      setCounters(prev => [...prev, newCounter]);
-      setFormData({ name: '', manager: '', contactNumber: '', address: '' });
+      if (response.data) {
+        // Refresh the counters list
+        const countersResponse = await countersAPI.getCounters();
+        if (countersResponse.data && countersResponse.data.data) {
+          setCounters(countersResponse.data.data);
+        }
 
-      // Show success message
-      alert(`Counter "${newCounter.name}" added successfully!`);
+        setFormData({ name: '', manager: '', contactNumber: '', address: '' });
 
-      // Navigate to Counters submenu to show the new counter
-      window.location.hash = 'counters/list';
+        // Show success message
+        alert(`Counter "${formData.name}" added successfully!`);
+
+        // Navigate to Counters submenu to show the new counter
+        window.location.hash = 'counters/list';
+      }
     } catch (error) {
       console.error('Error adding counter:', error);
       alert('Failed to add counter. Please try again.');
@@ -296,6 +360,119 @@ const Counters: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  // Counter Order Management Functions
+  const fetchCounterData = async (counterId: string) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Fetch orders and inventory for today
+      const [ordersResponse, inventoryResponse] = await Promise.all([
+        countersAPI.getCounterOrders(counterId, { date: today }),
+        countersAPI.getCounterInventory(counterId, { date: today })
+      ]);
+
+      setCounterOrders(ordersResponse.data?.data || []);
+      setCounterInventory(inventoryResponse.data?.data || []);
+
+      // Calculate today's totals
+      const inventory = inventoryResponse.data?.data || [];
+      const totals = inventory.reduce((acc: any, item: any) => ({
+        totalInput: acc.totalInput + item.totalRotis,
+        totalRemaining: acc.totalRemaining + item.remainingRotis,
+        totalSales: acc.totalSales + (item.soldRotis * 2) // Assuming ₹2 per roti
+      }), { totalInput: 0, totalRemaining: 0, totalSales: 0 });
+
+      setTodaysData(totals);
+    } catch (error) {
+      console.error('Error fetching counter data:', error);
+    }
+  };
+
+  const handleAddOrder = async () => {
+    if (!selectedCounter) return;
+
+    try {
+      const response = await countersAPI.createCounterOrder(selectedCounter.id, orderForm);
+
+      if (response.data) {
+        alert('Order added successfully!');
+        setShowAddOrder(false);
+        setOrderForm({
+          items: [{ packetSize: 10, quantity: 1 }],
+          notes: ''
+        });
+
+        // Refresh counter data
+        await fetchCounterData(selectedCounter.id);
+      }
+    } catch (error) {
+      console.error('Error adding order:', error);
+      alert('Failed to add order. Please try again.');
+    }
+  };
+
+  const addOrderItem = () => {
+    setOrderForm(prev => ({
+      ...prev,
+      items: [...prev.items, { packetSize: 10, quantity: 1 }]
+    }));
+  };
+
+  const removeOrderItem = (index: number) => {
+    if (orderForm.items.length > 1) {
+      setOrderForm(prev => ({
+        ...prev,
+        items: prev.items.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
+  const updateOrderItem = (index: number, field: 'packetSize' | 'quantity', value: number) => {
+    setOrderForm(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) =>
+        i === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  const handleEditCounter = async () => {
+    if (!selectedCounter || !editCounterForm.name.trim() || !editCounterForm.location.trim()) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      // Note: This would need a PUT endpoint for updating counters
+      // For now, we'll just update the local state
+      const updatedCounter = {
+        ...selectedCounter,
+        name: editCounterForm.name.trim(),
+        location: editCounterForm.location.trim(),
+        isActive: editCounterForm.isActive
+      };
+
+      setSelectedCounter(updatedCounter);
+      setCounters(prev => prev.map(c => c.id === selectedCounter.id ? updatedCounter : c));
+      setShowEditCounter(false);
+      alert('Counter updated successfully!');
+    } catch (error) {
+      console.error('Error updating counter:', error);
+      alert('Failed to update counter. Please try again.');
+    }
+  };
+
+  const openEditCounter = () => {
+    if (selectedCounter) {
+      setEditCounterForm({
+        name: selectedCounter.name,
+        location: selectedCounter.location,
+        isActive: selectedCounter.isActive
+      });
+      setShowEditCounter(true);
+    }
+  };
+
   const renderCountersList = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -303,6 +480,18 @@ const Counters: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Counters</h2>
           <p className="text-gray-600">View and manage all your counter locations</p>
         </div>
+        <button
+          onClick={() => {
+            setCurrentView('add');
+            window.location.hash = 'counters/add';
+          }}
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          <span>Add Counter</span>
+        </button>
       </div>
 
       {loading ? (
@@ -354,7 +543,7 @@ const Counters: React.FC = () => {
               <div className="pt-4 border-t border-gray-200">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Created</span>
-                  <span className="font-medium">{new Date(counter.createdAt).toLocaleDateString()}</span>
+                  <span className="font-medium">{formatDate(counter.createdAt)}</span>
                 </div>
               </div>
             </div>
@@ -469,45 +658,63 @@ const Counters: React.FC = () => {
   const renderCounterDetails = () => {
     if (!selectedCounter) return null;
 
-    // Mock daily data - replace with API call
-    const dailyData: CounterDetailsData = {
-      date: new Date().toISOString().split('T')[0],
-      input: 500,
-      output: 450,
-      sales: 3600,
-      products: [
-        { name: 'Plain Roti', input: 200, output: 180, sales: 1440 },
-        { name: 'Butter Roti', input: 150, output: 140, sales: 1680 },
-        { name: 'Masala Roti', input: 100, output: 90, sales: 1350 },
-        { name: 'Wheat Roti', input: 50, output: 40, sales: 400 }
-      ]
-    };
-
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{selectedCounter.name}</h2>
-            <p className="text-gray-600">{selectedCounter.location}</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{selectedCounter.name}</h2>
+            <p className="text-sm sm:text-base text-gray-600">{selectedCounter.location}</p>
           </div>
-          <button
-            onClick={() => {
-              setCurrentView('list');
-              setSelectedCounter(null);
-              window.location.hash = 'counters/list';
-            }}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            <span>Back to Counters</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => setShowAddOrder(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <span>Add Order</span>
+            </button>
+            <button
+              onClick={() => setShowRemaining(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              <span>Remaining</span>
+            </button>
+            <button
+              onClick={() => {
+                setCurrentView('list');
+                setSelectedCounter(null);
+                window.location.hash = 'counters/list';
+              }}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span className="hidden sm:inline">Back to Counters</span>
+              <span className="sm:hidden">Back</span>
+            </button>
+          </div>
         </div>
 
         {/* Counter Info */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Counter Information</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Counter Information</h3>
+            <button
+              onClick={openEditCounter}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <span>Edit</span>
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <p className="text-sm text-gray-500">Manager</p>
@@ -532,92 +739,436 @@ const Counters: React.FC = () => {
           </div>
         </div>
 
-        {/* Daily Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        {/* Today's Summary */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
                 </svg>
               </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Daily Input</p>
-                <p className="text-2xl font-bold text-blue-600">{dailyData.input}</p>
-                <p className="text-xs text-gray-400">Units</p>
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm text-gray-500">Today's Input</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">{todaysData.totalInput}</p>
+                <p className="text-xs text-gray-400">Rotis</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H3" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
               </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Daily Output</p>
-                <p className="text-2xl font-bold text-orange-600">{dailyData.output}</p>
-                <p className="text-xs text-gray-400">Units</p>
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm text-gray-500">Today's Remaining</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">{todaysData.totalRemaining}</p>
+                <p className="text-xs text-gray-400">Rotis</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                 </svg>
               </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Daily Sales</p>
-                <p className="text-2xl font-bold text-green-600">₹{dailyData.sales}</p>
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm text-gray-500">Today's Sales</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">₹{todaysData.totalSales}</p>
                 <p className="text-xs text-gray-400">Revenue</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Product-wise Details */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Product-wise Daily Record</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Product</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-900">Input</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-900">Output</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-900">Sales (₹)</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-900">Efficiency</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dailyData.products.map((product, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4 font-medium text-gray-900">{product.name}</td>
-                    <td className="py-4 px-4 text-center text-blue-600 font-medium">{product.input}</td>
-                    <td className="py-4 px-4 text-center text-orange-600 font-medium">{product.output}</td>
-                    <td className="py-4 px-4 text-center text-green-600 font-medium">₹{product.sales}</td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        (product.output / product.input) * 100 >= 90
+        {/* Today's Orders and Remaining Data */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {/* Today's Orders */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Today's Orders</h3>
+            {counterOrders.length > 0 ? (
+              <div className="space-y-3">
+                {counterOrders.map((order) => (
+                  <div key={order.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-gray-900">Order #{order.id.slice(-6)}</p>
+                        <p className="text-sm text-gray-600">{formatDate(order.orderDate)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">Total Packets: {order.totalPackets}</p>
+                        <p className="text-sm font-medium text-blue-600">Total Rotis: {order.totalQuantity}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-1">
+                      {order.items.map((item, index) => (
+                        <div key={index} className="text-sm text-gray-600 flex justify-between">
+                          <span>{item.quantity} packets × {item.packetSize} rotis</span>
+                          <span className="font-medium">{item.totalRotis} rotis</span>
+                        </div>
+                      ))}
+                    </div>
+                    {order.notes && (
+                      <p className="mt-2 text-sm text-gray-500 italic">Note: {order.notes}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-gray-500">No orders for today</p>
+                <button
+                  onClick={() => setShowAddOrder(true)}
+                  className="mt-2 text-green-600 hover:text-green-700 text-sm font-medium"
+                >
+                  Add First Order
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Remaining Roti Data */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Remaining Roti</h3>
+            {counterInventory.length > 0 ? (
+              <div className="space-y-3">
+                {counterInventory.map((inventory) => (
+                  <div key={inventory.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-gray-900">Packet Size: {inventory.packetSize} rotis</h4>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        inventory.remainingPackets > 0
                           ? 'bg-green-100 text-green-800'
-                          : (product.output / product.input) * 100 >= 80
-                          ? 'bg-yellow-100 text-yellow-800'
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {Math.round((product.output / product.input) * 100)}%
+                        {inventory.remainingPackets > 0 ? 'Available' : 'Out of Stock'}
                       </span>
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-500">Total Received</p>
+                        <p className="font-medium">{inventory.totalPackets} packets ({inventory.totalRotis} rotis)</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Sold</p>
+                        <p className="font-medium">{inventory.soldPackets} packets ({inventory.soldRotis} rotis)</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Remaining</p>
+                        <p className="font-medium text-orange-600">{inventory.remainingPackets} packets ({inventory.remainingRotis} rotis)</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Sales Rate</p>
+                        <p className="font-medium">
+                          {inventory.totalPackets > 0
+                            ? Math.round((inventory.soldPackets / inventory.totalPackets) * 100)
+                            : 0
+                          }%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <p className="text-gray-500">No inventory data for today</p>
+                <button
+                  onClick={() => setShowAddOrder(true)}
+                  className="mt-2 text-green-600 hover:text-green-700 text-sm font-medium"
+                >
+                  Add First Order
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Add Order Modal */}
+        {showAddOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Order - {selectedCounter.name}</h3>
+              <form onSubmit={(e) => { e.preventDefault(); handleAddOrder(); }} className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-medium text-gray-700">Order Items *</label>
+                    <button
+                      type="button"
+                      onClick={addOrderItem}
+                      className="text-green-600 hover:text-green-800 text-sm font-medium"
+                    >
+                      + Add Item
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {orderForm.items.map((item, index) => (
+                      <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                          <div className="flex-1">
+                            <label className="block text-xs text-gray-500 mb-1">Packet Size (rotis per packet)</label>
+                            <input
+                              type="number"
+                              value={item.packetSize}
+                              onChange={(e) => updateOrderItem(index, 'packetSize', Number(e.target.value))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                              placeholder="e.g., 10"
+                              min="1"
+                              required
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-xs text-gray-500 mb-1">Quantity (number of packets)</label>
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateOrderItem(index, 'quantity', Number(e.target.value))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                              placeholder="e.g., 5"
+                              min="1"
+                              required
+                            />
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-start space-x-3">
+                            <div className="text-center">
+                              <p className="text-xs text-gray-500">Total Rotis</p>
+                              <p className="text-sm font-medium text-gray-900">{item.packetSize * item.quantity}</p>
+                            </div>
+                            {orderForm.items.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeOrderItem(index)}
+                                className="text-red-600 hover:text-red-800 p-1"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {orderForm.items.length > 0 && (
+                    <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-green-900">Total Order:</span>
+                        <div className="text-right">
+                          <p className="text-sm text-green-700">
+                            {orderForm.items.reduce((sum, item) => sum + item.quantity, 0)} packets
+                          </p>
+                          <p className="text-lg font-bold text-green-700">
+                            {orderForm.items.reduce((sum, item) => sum + (item.packetSize * item.quantity), 0)} rotis
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                  <textarea
+                    value={orderForm.notes}
+                    onChange={(e) => setOrderForm(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                    rows={3}
+                    placeholder="Any additional notes for this order..."
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddOrder(false);
+                      setOrderForm({
+                        items: [{ packetSize: 10, quantity: 1 }],
+                        notes: ''
+                      });
+                    }}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50"
+                  >
+                    {loading ? 'Adding...' : 'Add Order'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Remaining Modal */}
+        {showRemaining && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Remaining Inventory - {selectedCounter.name}</h3>
+                <button
+                  onClick={() => setShowRemaining(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {counterInventory.length > 0 ? (
+                <div className="space-y-4">
+                  {counterInventory.map((inventory) => (
+                    <div key={inventory.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="text-center p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-blue-600 font-medium">Packet Size</p>
+                          <p className="text-xl font-bold text-blue-700">{inventory.packetSize}</p>
+                          <p className="text-xs text-blue-500">rotis per packet</p>
+                        </div>
+                        <div className="text-center p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-green-600 font-medium">Total Received</p>
+                          <p className="text-xl font-bold text-green-700">{inventory.totalPackets}</p>
+                          <p className="text-xs text-green-500">{inventory.totalRotis} rotis</p>
+                        </div>
+                        <div className="text-center p-3 bg-red-50 rounded-lg">
+                          <p className="text-sm text-red-600 font-medium">Sold</p>
+                          <p className="text-xl font-bold text-red-700">{inventory.soldPackets}</p>
+                          <p className="text-xs text-red-500">{inventory.soldRotis} rotis</p>
+                        </div>
+                        <div className="text-center p-3 bg-orange-50 rounded-lg">
+                          <p className="text-sm text-orange-600 font-medium">Remaining</p>
+                          <p className="text-xl font-bold text-orange-700">{inventory.remainingPackets}</p>
+                          <p className="text-xs text-orange-500">{inventory.remainingRotis} rotis</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-3">Summary</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-sm text-gray-600">Total Input Today</p>
+                        <p className="text-2xl font-bold text-blue-600">{todaysData.totalInput}</p>
+                        <p className="text-xs text-gray-500">rotis</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Total Remaining</p>
+                        <p className="text-2xl font-bold text-orange-600">{todaysData.totalRemaining}</p>
+                        <p className="text-xs text-gray-500">rotis</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Sales Rate</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {todaysData.totalInput > 0
+                            ? Math.round(((todaysData.totalInput - todaysData.totalRemaining) / todaysData.totalInput) * 100)
+                            : 0
+                          }%
+                        </p>
+                        <p className="text-xs text-gray-500">sold</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No inventory data</h3>
+                  <p className="text-gray-600 mb-4">No roti inventory found for today.</p>
+                  <button
+                    onClick={() => {
+                      setShowRemaining(false);
+                      setShowAddOrder(true);
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                  >
+                    Add First Order
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Edit Counter Modal */}
+        {showEditCounter && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Counter</h3>
+              <form onSubmit={(e) => { e.preventDefault(); handleEditCounter(); }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Counter Name *</label>
+                  <input
+                    type="text"
+                    value={editCounterForm.name}
+                    onChange={(e) => setEditCounterForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Main Counter"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
+                  <input
+                    type="text"
+                    value={editCounterForm.location}
+                    onChange={(e) => setEditCounterForm(prev => ({ ...prev, location: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Ground Floor - Main Hall"
+                    required
+                  />
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={editCounterForm.isActive}
+                    onChange={(e) => setEditCounterForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
+                    Active Counter
+                  </label>
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditCounter(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                  >
+                    Update Counter
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -731,7 +1282,7 @@ const Counters: React.FC = () => {
               <h4 className="font-semibold text-gray-900">Counter Information</h4>
               <p className="text-gray-600">Name: {reportData.counter.name}</p>
               <p className="text-gray-600">Location: {reportData.counter.location}</p>
-              <p className="text-gray-600">Date: {new Date(reportData.date).toLocaleDateString()}</p>
+              <p className="text-gray-600">Date: {formatDate(reportData.date)}</p>
             </div>
             <div>
               <h4 className="font-semibold text-gray-900">Summary</h4>

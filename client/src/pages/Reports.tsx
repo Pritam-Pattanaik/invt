@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import anime from 'animejs';
 import toast from 'react-hot-toast';
 import { PDFGenerator } from '../utils/pdfGenerator';
+import { formatDate, getCurrentDate } from '../utils/dateUtils';
 
 const Reports: React.FC = () => {
   const [currentView, setCurrentView] = useState<'overview' | 'sales' | 'inventory' | 'financial' | 'custom'>('overview');
@@ -232,7 +233,7 @@ const SalesReportsPage: React.FC = () => {
               onClick={() => {
                 const pdf = new PDFGenerator({
                   title: 'Daily Sales Summary',
-                  subtitle: `Date: ${new Date().toLocaleDateString('en-IN')}`,
+                  subtitle: `Date: ${getCurrentDate()}`,
                   includeDate: true
                 });
 

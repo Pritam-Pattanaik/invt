@@ -7,7 +7,8 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Sales from './pages/Sales';
 import Manufacturing from './pages/Manufacturing';
-import Franchises from './pages/Franchises';
+import Hotels from './pages/Hotels';
+import Hostels from './pages/Hostels';
 import Counters from './pages/Counters';
 import Finance from './pages/Finance';
 import HumanResources from './pages/HumanResources';
@@ -365,7 +366,8 @@ const AppRoutes: React.FC = () => {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/sales/*" element={<Sales />} />
                 <Route path="/manufacturing/*" element={<Manufacturing />} />
-                <Route path="/franchises/*" element={<Franchises />} />
+                <Route path="/hotels/*" element={<Hotels />} />
+                <Route path="/hostels/*" element={<Hostels />} />
                 <Route path="/counters/*" element={<Counters />} />
                 <Route path="/finance/*" element={<Finance />} />
                 <Route path="/hr/*" element={<HumanResources />} />

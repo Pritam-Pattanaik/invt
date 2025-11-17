@@ -200,50 +200,103 @@ export const manufacturingAPI = {
   }) => api.get('/manufacturing/inventory', { params }),
 };
 
-// Franchises API
-export const franchisesAPI = {
-  getFranchises: (params?: {
+// Hotels API
+export const hotelsAPI = {
+  getHotels: (params?: {
     page?: number;
     limit?: number;
     status?: string;
     search?: string;
-  }) => api.get('/franchises', { params }),
-  
-  createFranchise: (data: {
+  }) => api.get('/hotels', { params }),
+
+  createHotel: (data: {
     name: string;
     code: string;
-    ownerName: string;
-    ownerEmail: string;
-    ownerPhone: string;
+    managerName: string;
+    managerPhone: string;
     address: string;
     city: string;
     state: string;
     pincode: string;
     gstNumber?: string;
     licenseNumber?: string;
-    royaltyRate: number;
     managedBy?: string;
     openingDate?: string;
-  }) => api.post('/franchises', data),
-  
-  getFranchise: (id: string) => api.get(`/franchises/${id}`),
-  
-  updateFranchise: (id: string, data: any) => api.put(`/franchises/${id}`, data),
-  
-  getFranchiseStats: (id: string) => api.get(`/franchises/${id}/stats`),
+  }) => api.post('/hotels', data),
+
+  getHotel: (id: string) => api.get(`/hotels/${id}`),
+
+  updateHotel: (id: string, data: any) => api.put(`/hotels/${id}`, data),
+
+  createHotelOrder: (hotelId: string, data: {
+    items: Array<{
+      packetSize: number;
+      quantity: number;
+    }>;
+    notes?: string;
+  }) => api.post(`/hotels/${hotelId}/orders`, data),
+
+  getHotelOrders: (hotelId: string, params?: {
+    date?: string;
+    page?: number;
+    limit?: number;
+  }) => api.get(`/hotels/${hotelId}/orders`, { params }),
+};
+
+// Hostels API
+export const hostelsAPI = {
+  getHostels: (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }) => api.get('/hostels', { params }),
+
+  createHostel: (data: {
+    name: string;
+    code: string;
+    managerName: string;
+    managerPhone: string;
+    address: string;
+    city: string;
+    state: string;
+    pincode: string;
+    gstNumber?: string;
+    licenseNumber?: string;
+    managedBy?: string;
+    openingDate?: string;
+  }) => api.post('/hostels', data),
+
+  getHostel: (id: string) => api.get(`/hostels/${id}`),
+
+  updateHostel: (id: string, data: any) => api.put(`/hostels/${id}`, data),
+
+  createHostelOrder: (hostelId: string, data: {
+    items: Array<{
+      packetSize: number;
+      quantity: number;
+    }>;
+    notes?: string;
+  }) => api.post(`/hostels/${hostelId}/orders`, data),
+
+  getHostelOrders: (hostelId: string, params?: {
+    date?: string;
+    page?: number;
+    limit?: number;
+  }) => api.get(`/hostels/${hostelId}/orders`, { params }),
 };
 
 // Counters API
 export const countersAPI = {
   getCounters: (params?: {
-    franchiseId?: string;
     isActive?: boolean;
   }) => api.get('/counters', { params }),
-  
+
   createCounter: (data: {
-    franchiseId: string;
     name: string;
     location: string;
+    managerName?: string;
+    managerPhone?: string;
   }) => api.post('/counters', data),
   
   // Orders
@@ -273,6 +326,34 @@ export const countersAPI = {
     status: string;
     notes?: string;
   }) => api.put(`/counters/orders/${id}`, data),
+
+  // Counter Orders (Roti Delivery)
+  createCounterOrder: (counterId: string, data: {
+    items: Array<{
+      packetSize: number;
+      quantity: number;
+    }>;
+    notes?: string;
+  }) => api.post(`/counters/${counterId}/orders`, data),
+
+  getCounterOrders: (counterId: string, params?: {
+    date?: string;
+    page?: number;
+    limit?: number;
+  }) => api.get(`/counters/${counterId}/orders`, { params }),
+
+  // Counter Inventory
+  getCounterInventory: (counterId: string, params?: {
+    date?: string;
+  }) => api.get(`/counters/${counterId}/inventory`, { params }),
+
+  // Counter Sales
+  updateCounterSales: (counterId: string, data: {
+    items: Array<{
+      packetSize: number;
+      soldPackets: number;
+    }>;
+  }) => api.post(`/counters/${counterId}/sales`, data),
 };
 
 // Sales API
@@ -539,7 +620,6 @@ export const reportsAPI = {
   getSalesReport: (params?: {
     startDate?: string;
     endDate?: string;
-    franchiseId?: string;
     counterId?: string;
     groupBy?: 'day' | 'week' | 'month';
   }) => api.get('/reports/sales', { params }),

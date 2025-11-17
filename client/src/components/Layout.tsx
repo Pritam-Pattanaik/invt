@@ -34,10 +34,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       current: location.pathname.startsWith('/manufacturing'),
     },
     {
-      name: 'Franchises',
-      href: '/franchises',
+      name: 'Hotels',
+      href: '/hotels',
       icon: BuildingStorefrontIcon,
-      current: location.pathname.startsWith('/franchises'),
+      current: location.pathname.startsWith('/hotels'),
+    },
+    {
+      name: 'Hostels',
+      href: '/hostels',
+      icon: BuildingStorefrontIcon,
+      current: location.pathname.startsWith('/hostels'),
     },
     {
       name: 'Counters',

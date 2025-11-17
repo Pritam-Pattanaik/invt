@@ -55,10 +55,23 @@ async function cleanupDatabase() {
       const deletedInventoryItems = await tx.inventoryItem.deleteMany({});
       console.log(`   ✅ Deleted ${deletedInventoryItems.count} inventory items`);
 
-      // 10. Delete Franchise Inventory
-      console.log('🗑️  Deleting franchise inventory...');
-      const deletedFranchiseInventory = await tx.franchiseInventory.deleteMany({});
-      console.log(`   ✅ Deleted ${deletedFranchiseInventory.count} franchise inventory records`);
+      // 10. Delete Hotel Orders and Items
+      console.log('🗑️  Deleting hotel order items...');
+      const deletedHotelOrderItems = await tx.hotelOrderItem.deleteMany({});
+      console.log(`   ✅ Deleted ${deletedHotelOrderItems.count} hotel order items`);
+
+      console.log('🗑️  Deleting hotel orders...');
+      const deletedHotelOrders = await tx.hotelOrder.deleteMany({});
+      console.log(`   ✅ Deleted ${deletedHotelOrders.count} hotel orders`);
+
+      // 10a. Delete Hostel Orders and Items
+      console.log('🗑️  Deleting hostel order items...');
+      const deletedHostelOrderItems = await tx.hostelOrderItem.deleteMany({});
+      console.log(`   ✅ Deleted ${deletedHostelOrderItems.count} hostel order items`);
+
+      console.log('🗑️  Deleting hostel orders...');
+      const deletedHostelOrders = await tx.hostelOrder.deleteMany({});
+      console.log(`   ✅ Deleted ${deletedHostelOrders.count} hostel orders`);
 
       // 11. Delete Recipe Items (child records first)
       console.log('🗑️  Deleting recipe items...');
@@ -85,10 +98,15 @@ async function cleanupDatabase() {
       const deletedCounters = await tx.counter.deleteMany({});
       console.log(`   ✅ Deleted ${deletedCounters.count} counters`);
 
-      // 16. Delete Franchises
-      console.log('🗑️  Deleting franchises...');
-      const deletedFranchises = await tx.franchise.deleteMany({});
-      console.log(`   ✅ Deleted ${deletedFranchises.count} franchises`);
+      // 16. Delete Hotels
+      console.log('🗑️  Deleting hotels...');
+      const deletedHotels = await tx.hotel.deleteMany({});
+      console.log(`   ✅ Deleted ${deletedHotels.count} hotels`);
+
+      // 16a. Delete Hostels
+      console.log('🗑️  Deleting hostels...');
+      const deletedHostels = await tx.hostel.deleteMany({});
+      console.log(`   ✅ Deleted ${deletedHostels.count} hostels`);
 
       // 17. Delete Expenses
       console.log('🗑️  Deleting expenses...');
@@ -111,13 +129,17 @@ async function cleanupDatabase() {
       console.log(`   • Quality Checks: ${deletedQualityChecks.count}`);
       console.log(`   • Inventory Transactions: ${deletedInventoryTransactions.count}`);
       console.log(`   • Inventory Items: ${deletedInventoryItems.count}`);
-      console.log(`   • Franchise Inventory: ${deletedFranchiseInventory.count}`);
+      console.log(`   • Hotel Order Items: ${deletedHotelOrderItems.count}`);
+      console.log(`   • Hotel Orders: ${deletedHotelOrders.count}`);
+      console.log(`   • Hostel Order Items: ${deletedHostelOrderItems.count}`);
+      console.log(`   • Hostel Orders: ${deletedHostelOrders.count}`);
       console.log(`   • Recipe Items: ${deletedRecipeItems.count}`);
       console.log(`   • Recipes: ${deletedRecipes.count}`);
       console.log(`   • Products: ${deletedProducts.count}`);
       console.log(`   • Raw Materials: ${deletedRawMaterials.count}`);
       console.log(`   • Counters: ${deletedCounters.count}`);
-      console.log(`   • Franchises: ${deletedFranchises.count}`);
+      console.log(`   • Hotels: ${deletedHotels.count}`);
+      console.log(`   • Hostels: ${deletedHostels.count}`);
       console.log(`   • Expenses: ${deletedExpenses.count}`);
       console.log(`   • Accounts: ${deletedAccounts.count}`);
 
@@ -142,7 +164,8 @@ async function verifyCleanup() {
       orderItems: await prisma.orderItem.count(),
       posTransactions: await prisma.pOSTransaction.count(),
       posTransactionItems: await prisma.pOSTransactionItem.count(),
-      franchises: await prisma.franchise.count(),
+      hotels: await prisma.hotel.count(),
+      hostels: await prisma.hostel.count(),
       counters: await prisma.counter.count(),
       inventoryItems: await prisma.inventoryItem.count(),
       recipes: await prisma.recipe.count(),

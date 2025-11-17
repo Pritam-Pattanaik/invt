@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { formatDate } from './dateUtils';
 
 // Company information
 const COMPANY_INFO = {
@@ -93,7 +94,7 @@ export class PDFGenerator {
 
     // Date
     this.doc.setFontSize(10);
-    this.doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, this.pageWidth - this.margin, 65, { align: 'right' });
+    this.doc.text(`Generated on: ${formatDate(new Date())}`, this.pageWidth - this.margin, 65, { align: 'right' });
   }
 
   addSection(title: string, content: string | string[]) {
@@ -282,7 +283,7 @@ export const generateSalesReportPDF = (data: any, period: string) => {
     const rows = data.orders.map((order: any) => [
       order.orderNumber || order.id,
       order.customerName || 'N/A',
-      new Date(order.createdAt || order.date).toLocaleDateString('en-IN'),
+      formatDate(order.createdAt || order.date),
       `₹${order.totalAmount?.toLocaleString() || '0'}`,
       order.status || 'N/A'
     ]);

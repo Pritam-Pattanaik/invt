@@ -17,9 +17,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, activeSection, onSe
       setExpandedMenus(prev =>
         prev.includes('counters') ? prev : [...prev, 'counters']
       );
-    } else if (activeSection.startsWith('franchises')) {
+    } else if (activeSection.startsWith('hotels')) {
       setExpandedMenus(prev =>
-        prev.includes('franchises') ? prev : [...prev, 'franchises']
+        prev.includes('hotels') ? prev : [...prev, 'hotels']
+      );
+    } else if (activeSection.startsWith('hostels')) {
+      setExpandedMenus(prev =>
+        prev.includes('hostels') ? prev : [...prev, 'hostels']
       );
     } else if (activeSection.startsWith('manufacturing')) {
       setExpandedMenus(prev =>
@@ -82,15 +86,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, activeSection, onSe
       ]
     },
     {
-      id: 'franchises',
-      name: 'Franchises',
-      icon: '🏪',
-      path: 'franchises',
+      id: 'hotels',
+      name: 'Hotels',
+      icon: '🏨',
+      path: 'hotels',
       subItems: [
-        { id: 'franchise-list', name: 'All Franchises', path: 'franchises/list' },
-        { id: 'franchise-performance', name: 'Performance', path: 'franchises/performance' },
-        { id: 'royalty', name: 'Royalty Management', path: 'franchises/royalty' },
-        { id: 'onboarding', name: 'Onboarding', path: 'franchises/onboarding' }
+        { id: 'hotel-list', name: 'All Hotels', path: 'hotels/list' },
+        { id: 'add-hotel', name: 'Add Hotel', path: 'hotels/add' },
+        { id: 'hotel-orders', name: 'Daily Orders', path: 'hotels/orders' }
+      ]
+    },
+    {
+      id: 'hostels',
+      name: 'Hostels',
+      icon: '🏠',
+      path: 'hostels',
+      subItems: [
+        { id: 'hostel-list', name: 'All Hostels', path: 'hostels/list' },
+        { id: 'add-hostel', name: 'Add Hostel', path: 'hostels/add' },
+        { id: 'hostel-orders', name: 'Daily Orders', path: 'hostels/orders' }
       ]
     },
     {

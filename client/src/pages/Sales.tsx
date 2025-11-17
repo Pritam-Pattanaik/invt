@@ -8,6 +8,7 @@ import { usePermissions } from '../utils/permissions';
 import { salesAPI, reportsAPI } from '../services/api';
 import ActionButtons from '../components/ActionButtons';
 import { generateSalesReportPDF } from '../utils/pdfGenerator';
+import { formatDate, getCurrentDate } from '../utils/dateUtils';
 
 // Types
 interface Product {
@@ -121,10 +122,7 @@ const Sales: React.FC = () => {
     queryKey: ['advance-orders'],
     queryFn: async () => {
       try {
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split('T')[0];
-
-        // Fetch all orders and filter for advance orders (delivery date > today)
+        // Fetch all orders and filter for advance orders (orderDate ≠ deliveryDate)
         const response = await salesAPI.getOrders({
           limit: 100 // Get more orders to filter
         });
@@ -141,8 +139,13 @@ const Sales: React.FC = () => {
         }
 
         return allOrders.filter((order: any) => {
-          const orderDeliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : '';
-          return orderDeliveryDate > today;
+          const today = new Date().toISOString().split('T')[0];
+          const orderDate = order.orderDate ? order.orderDate.split('T')[0] : '';
+          const deliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : '';
+          // Advance orders are those where:
+          // 1. Order date and delivery date are different
+          // 2. Delivery date is in the future (> today)
+          return orderDate && deliveryDate && orderDate !== deliveryDate && deliveryDate > today;
         });
       } catch (error) {
         // Advance Orders API not available, using mock data
@@ -154,8 +157,12 @@ const Sales: React.FC = () => {
 
         return mockData.filter((order: Order) => {
           const today = new Date().toISOString().split('T')[0];
-          const orderDeliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : '';
-          return orderDeliveryDate > today;
+          const orderDate = order.orderDate ? order.orderDate.split('T')[0] : '';
+          const deliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : '';
+          // Advance orders are those where:
+          // 1. Order date and delivery date are different
+          // 2. Delivery date is in the future (> today)
+          return orderDate && deliveryDate && orderDate !== deliveryDate && deliveryDate > today;
         });
       }
     },
@@ -386,6 +393,7 @@ const Sales: React.FC = () => {
     customerAddress: '',
     orderDate: new Date().toISOString().split('T')[0], // Today
     deliveryDate: new Date().toISOString().split('T')[0], // Today (changed from tomorrow)
+    deliveryTime: '12:00', // Default delivery time
     items: [] as { productId: string; quantity: number }[]
   });
 
@@ -599,7 +607,7 @@ const Sales: React.FC = () => {
       );
 
       if (existingOrder) {
-        toast.error(`Order already exists for ${orderForm.customerName} on ${new Date(orderForm.deliveryDate).toLocaleDateString('en-IN')}. Order #${existingOrder.orderNumber}`);
+        toast.error(`Order already exists for ${orderForm.customerName} on ${formatDate(orderForm.deliveryDate)}. Order #${existingOrder.orderNumber}`);
         return;
       }
 
@@ -623,6 +631,7 @@ const Sales: React.FC = () => {
         customerAddress: orderForm.customerAddress.trim(),
         orderDate,
         deliveryDate,
+        deliveryTime: orderForm.deliveryTime,
         items: apiItems  // Use API-compatible format
       };
 
@@ -647,6 +656,7 @@ const Sales: React.FC = () => {
         customerAddress: '',
         orderDate: new Date().toISOString().split('T')[0],
         deliveryDate: new Date().toISOString().split('T')[0], // Today by default
+        deliveryTime: '12:00', // Default delivery time
         items: []
       });
 
@@ -754,6 +764,7 @@ const Sales: React.FC = () => {
     const customerAddress = order.customerAddress || order.customer?.address || '';
     const orderDate = order.orderDate ? order.orderDate.split('T')[0] : new Date().toISOString().split('T')[0];
     const deliveryDate = order.deliveryDate ? order.deliveryDate.split('T')[0] : new Date().toISOString().split('T')[0];
+    const deliveryTime = (order as any).deliveryTime || '12:00'; // Default delivery time
 
     // Handle items array safely
     const items = Array.isArray(order.items) ? order.items.map(item => ({
@@ -767,6 +778,7 @@ const Sales: React.FC = () => {
       customerAddress,
       orderDate,
       deliveryDate,
+      deliveryTime,
       items
     });
 
@@ -776,6 +788,7 @@ const Sales: React.FC = () => {
       customerAddress,
       orderDate,
       deliveryDate,
+      deliveryTime,
       items
     });
     setShowEditOrder(true);
@@ -803,6 +816,7 @@ const Sales: React.FC = () => {
         customerAddress: orderForm.customerAddress,
         orderDate,
         deliveryDate,
+        deliveryTime: orderForm.deliveryTime,
         items: orderForm.items.map(item => {
           const product = products && Array.isArray(products) ? products.find(p => p?.id === item.productId) : null;
           return {
@@ -838,6 +852,7 @@ const Sales: React.FC = () => {
         customerAddress: '',
         orderDate: new Date().toISOString().split('T')[0], // Today
         deliveryDate: new Date().toISOString().split('T')[0], // Today
+        deliveryTime: '12:00', // Default delivery time
         items: []
       });
       setEditingOrder(null);
@@ -979,13 +994,13 @@ const Sales: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 lg:p-6">
       {/* Navigation Tabs */}
-      <div className="mb-6">
-        <nav className="flex space-x-8">
+      <div className="mb-4 sm:mb-6">
+        <nav className="flex flex-wrap gap-2 sm:gap-4 lg:gap-8 border-b border-gray-200">
           <button
             onClick={() => navigate('/sales/orders')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
               location.pathname === '/sales/orders' || location.pathname === '/sales'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -995,27 +1010,29 @@ const Sales: React.FC = () => {
           </button>
           <button
             onClick={() => navigate('/sales/advance-orders')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
               location.pathname === '/sales/advance-orders'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Advance Orders
+            <span className="hidden sm:inline">Advance Orders</span>
+            <span className="sm:hidden">Advance</span>
           </button>
           <button
             onClick={() => navigate('/sales/pos')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
               location.pathname === '/sales/pos'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Point of Sale
+            <span className="hidden sm:inline">Point of Sale</span>
+            <span className="sm:hidden">POS</span>
           </button>
           <button
             onClick={() => navigate('/sales/reports')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
               location.pathname === '/sales/reports'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1030,17 +1047,17 @@ const Sales: React.FC = () => {
       <Routes>
         <Route path="/" element={<Navigate to="/sales/orders" replace />} />
         <Route path="/orders" element={
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Orders</h2>
-                <p className="text-gray-600">Manage customer orders and deliveries</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Orders</h2>
+                <p className="text-sm sm:text-base text-gray-600">Manage customer orders and deliveries</p>
               </div>
               <button
                 onClick={() => setShowAddOrder(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
                 <span>Add Order</span>
@@ -1049,11 +1066,13 @@ const Sales: React.FC = () => {
 
             {/* Orders Table */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Today's Orders</h3>
                 <p className="text-sm text-gray-600 mt-1">Orders scheduled for delivery today</p>
               </div>
-              <div className="overflow-x-auto">
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
@@ -1061,6 +1080,7 @@ const Sales: React.FC = () => {
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">Customer</th>
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">Order Date</th>
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">Delivery Date</th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">Delivery Time</th>
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">Items</th>
                       <th className="text-right py-3 px-6 font-semibold text-gray-900">Amount</th>
                       <th className="text-center py-3 px-6 font-semibold text-gray-900">Status</th>
@@ -1080,10 +1100,13 @@ const Sales: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-4 px-6 text-sm text-gray-600">
-                          {order?.orderDate ? new Date(order.orderDate).toLocaleDateString('en-IN') : 'N/A'}
+                          {formatDate(order?.orderDate)}
                         </td>
                         <td className="py-4 px-6 text-sm text-gray-600">
-                          {order?.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-IN') : 'N/A'}
+                          {formatDate(order?.deliveryDate)}
+                        </td>
+                        <td className="py-4 px-6 text-sm text-gray-600">
+                          {(order as any)?.deliveryTime || 'Not set'}
                         </td>
                         <td className="py-4 px-6">
                           <div className="text-sm">
@@ -1124,7 +1147,7 @@ const Sales: React.FC = () => {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={permissions.isSuperAdmin() ? 8 : 7} className="py-16 text-center">
+                        <td colSpan={permissions.isSuperAdmin() ? 9 : 8} className="py-16 text-center">
                           <div className="flex flex-col items-center space-y-4">
                             <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1132,7 +1155,7 @@ const Sales: React.FC = () => {
                             <div className="text-center">
                               <h3 className="text-lg font-medium text-gray-900 mb-2">No orders available for today</h3>
                               <p className="text-gray-600 mb-1">
-                                There are currently no orders scheduled for delivery today ({new Date().toLocaleDateString('en-IN')}).
+                                There are currently no orders scheduled for delivery today ({getCurrentDate()}).
                               </p>
                               <p className="text-sm text-gray-500 mb-6">
                                 Orders with delivery date = today will appear in this table.
@@ -1154,34 +1177,128 @@ const Sales: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden">
+                {todaysOrders && Array.isArray(todaysOrders) && todaysOrders.length > 0 ? (
+                  <div className="divide-y divide-gray-200">
+                    {todaysOrders.map((order, index) => (
+                      <div key={order?.id || `order-${index}`} className="p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="font-medium text-gray-900">{order?.orderNumber || 'N/A'}</h4>
+                            <p className="text-sm text-gray-600">{order?.customer?.name || order?.customerName || 'Unknown Customer'}</p>
+                            <p className="text-xs text-gray-500">{order?.customer?.phone || order?.customerPhone || 'N/A'}</p>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              order?.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                              order?.status === 'READY' ? 'bg-blue-100 text-blue-800' :
+                              order?.status === 'PREPARING' ? 'bg-yellow-100 text-yellow-800' :
+                              order?.status === 'CONFIRMED' ? 'bg-purple-100 text-purple-800' :
+                              order?.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {order?.status || 'PENDING'}
+                            </span>
+                            <span className="text-lg font-semibold text-gray-900">₹{(order?.totalAmount || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                          <div>
+                            <span className="text-gray-500">Order Date:</span>
+                            <p className="font-medium">{formatDate(order?.orderDate)}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Delivery:</span>
+                            <p className="font-medium">{formatDate(order?.deliveryDate)}</p>
+                            {(order as any)?.deliveryTime && (
+                              <p className="text-xs text-gray-500">{(order as any).deliveryTime}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-gray-500 text-sm">Items:</span>
+                          <div className="mt-1">
+                            {order?.items && Array.isArray(order.items) && order.items.length > 0 ? order.items.map((item: any, index: number) => (
+                              <div key={`item-${index}`} className="text-sm text-gray-600">
+                                {item?.product?.name || item?.productName || 'Unknown Product'} × {item?.quantity || 0}
+                              </div>
+                            )) : (
+                              <div className="text-sm text-gray-500">No items</div>
+                            )}
+                          </div>
+                        </div>
+
+                        {permissions.isSuperAdmin() && (
+                          <div className="flex justify-end">
+                            <ActionButtons
+                              onEdit={() => handleEditOrder(order)}
+                              onDelete={() => handleDeleteOrder(order?.id)}
+                              canEdit={permissions.canEdit('SALES')}
+                              canDelete={permissions.canDelete('SALES')}
+                              size="sm"
+                              variant="minimal"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center">
+                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No orders for today</h3>
+                    <p className="text-gray-600 mb-4 text-sm">
+                      No orders scheduled for delivery today ({getCurrentDate()}).
+                    </p>
+                    <button
+                      onClick={() => setShowAddOrder(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Create First Order
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         } />
         <Route path="/advance-orders" element={
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Advance Orders</h2>
-                <p className="text-gray-600">Manage advance orders for future delivery</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Advance Orders</h2>
+                <p className="text-sm sm:text-base text-gray-600">Orders with different order/delivery dates and future delivery dates</p>
               </div>
               <button
                 onClick={() => setShowAddOrder(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                <span>Add Advance Order</span>
+                <span className="hidden sm:inline">Add Advance Order</span>
+                <span className="sm:hidden">Add Order</span>
               </button>
             </div>
 
             {/* Advance Orders Table */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Advance Orders</h3>
-                <p className="text-sm text-gray-500 mt-1">Orders scheduled for future delivery dates</p>
+                <p className="text-sm text-gray-500 mt-1">Orders with different order/delivery dates and future delivery dates</p>
               </div>
-              <div className="overflow-x-auto">
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
@@ -1189,6 +1306,7 @@ const Sales: React.FC = () => {
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">Customer</th>
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">Order Date</th>
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">Delivery Date</th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">Delivery Time</th>
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">Items</th>
                       <th className="text-right py-3 px-6 font-semibold text-gray-900">Amount</th>
                       <th className="text-center py-3 px-6 font-semibold text-gray-900">Status</th>
@@ -1200,7 +1318,7 @@ const Sales: React.FC = () => {
                   <tbody>
                     {advanceOrdersLoading ? (
                       <tr>
-                        <td colSpan={permissions.isSuperAdmin() ? 8 : 7} className="py-8 text-center text-gray-500">
+                        <td colSpan={permissions.isSuperAdmin() ? 9 : 8} className="py-8 text-center text-gray-500">
                           Loading advance orders...
                         </td>
                       </tr>
@@ -1214,10 +1332,13 @@ const Sales: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-4 px-6 text-gray-600">
-                          {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : 'N/A'}
+                          {formatDate(order.orderDate)}
                         </td>
                         <td className="py-4 px-6 text-gray-600">
-                          {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'N/A'}
+                          {formatDate(order.deliveryDate)}
+                        </td>
+                        <td className="py-4 px-6 text-sm text-gray-600">
+                          {order.deliveryTime || 'Not set'}
                         </td>
                         <td className="py-4 px-6">
                           <div className="text-sm">
@@ -1258,7 +1379,7 @@ const Sales: React.FC = () => {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={permissions.isSuperAdmin() ? 8 : 7} className="py-12 text-center text-gray-500">
+                        <td colSpan={permissions.isSuperAdmin() ? 9 : 8} className="py-12 text-center text-gray-500">
                           <div className="flex flex-col items-center space-y-3">
                             <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1274,21 +1395,112 @@ const Sales: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden">
+                {advanceOrders && Array.isArray(advanceOrders) && advanceOrders.length > 0 ? (
+                  <div className="divide-y divide-gray-200">
+                    {advanceOrders.map((order, index) => (
+                      <div key={order?.id || `advance-order-${index}`} className="p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="font-medium text-gray-900">{order?.orderNumber || 'N/A'}</h4>
+                            <p className="text-sm text-gray-600">{order?.customer?.name || order?.customerName || 'Unknown Customer'}</p>
+                            <p className="text-xs text-gray-500">{order?.customer?.phone || order?.customerPhone || 'N/A'}</p>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              order?.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                              order?.status === 'READY' ? 'bg-blue-100 text-blue-800' :
+                              order?.status === 'PREPARING' ? 'bg-yellow-100 text-yellow-800' :
+                              order?.status === 'CONFIRMED' ? 'bg-purple-100 text-purple-800' :
+                              order?.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {order?.status || 'PENDING'}
+                            </span>
+                            <span className="text-lg font-semibold text-gray-900">₹{(order?.totalAmount || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                          <div>
+                            <span className="text-gray-500">Order Date:</span>
+                            <p className="font-medium">{formatDate(order?.orderDate)}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Delivery:</span>
+                            <p className="font-medium">{formatDate(order?.deliveryDate)}</p>
+                            {(order as any)?.deliveryTime && (
+                              <p className="text-xs text-gray-500">{(order as any).deliveryTime}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-gray-500 text-sm">Items:</span>
+                          <div className="mt-1">
+                            {order?.items && Array.isArray(order.items) && order.items.length > 0 ? order.items.map((item: any, index: number) => (
+                              <div key={`item-${index}`} className="text-sm text-gray-600">
+                                {item?.product?.name || item?.productName || 'Unknown Product'} × {item?.quantity || 0}
+                              </div>
+                            )) : (
+                              <div className="text-sm text-gray-500">No items</div>
+                            )}
+                          </div>
+                        </div>
+
+                        {permissions.isSuperAdmin() && (
+                          <div className="flex justify-end">
+                            <ActionButtons
+                              onEdit={() => handleEditOrder(order)}
+                              onDelete={() => handleDeleteOrder(order?.id)}
+                              canEdit={permissions.canEdit('SALES')}
+                              canDelete={permissions.canDelete('SALES')}
+                              size="sm"
+                              variant="minimal"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center">
+                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No advance orders found</h3>
+                    <p className="text-gray-600 mb-4 text-sm">
+                      Advance orders will appear here when created.
+                    </p>
+                    <button
+                      onClick={() => setShowAddOrder(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Create Advance Order
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         } />
         <Route path="/pos" element={
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Point of Sale</h2>
-                <p className="text-gray-600">Direct sales from factory to customers</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Point of Sale</h2>
+                <p className="text-sm sm:text-base text-gray-600">Direct sales from factory to customers</p>
               </div>
               <button
                 onClick={() => setShowPOS(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                 </svg>
                 <span>New Sale</span>
@@ -1297,11 +1509,13 @@ const Sales: React.FC = () => {
 
             {/* POS Transactions Table */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Today's POS Transactions</h3>
                 <p className="text-sm text-gray-600 mt-1">Point of Sale transactions for today</p>
               </div>
-              <div className="overflow-x-auto">
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
@@ -1370,7 +1584,7 @@ const Sales: React.FC = () => {
                             <div className="text-center">
                               <h3 className="text-lg font-medium text-gray-900 mb-2">No POS transactions for today</h3>
                               <p className="text-gray-600 mb-1">
-                                There are currently no Point of Sale transactions for today ({new Date().toLocaleDateString('en-IN')}).
+                                There are currently no Point of Sale transactions for today ({getCurrentDate()}).
                               </p>
                               <p className="text-sm text-gray-500 mb-6">
                                 POS transactions will appear here when sales are made.
@@ -1392,21 +1606,98 @@ const Sales: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden">
+                {todaysPOSTransactions && Array.isArray(todaysPOSTransactions) && todaysPOSTransactions.length > 0 ? (
+                  <div className="divide-y divide-gray-200">
+                    {todaysPOSTransactions.map((transaction, index) => (
+                      <div key={transaction?.id || `pos-transaction-${index}`} className="p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="font-medium text-gray-900">{transaction?.transactionNumber || 'N/A'}</h4>
+                            <p className="text-sm text-gray-600">{transaction?.customerName || 'Walk-in Customer'}</p>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              transaction?.paymentMethod === 'CASH' ? 'bg-green-100 text-green-800' :
+                              transaction?.paymentMethod === 'CARD' ? 'bg-blue-100 text-blue-800' :
+                              'bg-purple-100 text-purple-800'
+                            }`}>
+                              {transaction?.paymentMethod || 'CASH'}
+                            </span>
+                            <span className="text-lg font-semibold text-gray-900">₹{(transaction?.totalAmount || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-gray-500 text-sm">Items:</span>
+                          <div className="mt-1">
+                            {transaction?.transactionItems && Array.isArray(transaction.transactionItems) && transaction.transactionItems.length > 0 ? transaction.transactionItems.map((item: any, index: number) => (
+                              <div key={`transaction-item-${index}`} className="text-sm text-gray-600">
+                                {item?.product?.name || item?.productName || 'Unknown Product'} × {item?.quantity || 0}
+                              </div>
+                            )) : transaction?.items && Array.isArray(transaction.items) && transaction.items.length > 0 ? transaction.items.map((item: any, index: number) => (
+                              <div key={`item-${index}`} className="text-sm text-gray-600">
+                                {item?.product?.name || item?.productName || 'Unknown Product'} × {item?.quantity || 0}
+                              </div>
+                            )) : (
+                              <div className="text-sm text-gray-500">No items</div>
+                            )}
+                          </div>
+                        </div>
+
+                        {permissions.isSuperAdmin() && (
+                          <div className="flex justify-end">
+                            <ActionButtons
+                              onEdit={() => handleEditPOS(transaction)}
+                              onDelete={() => handleDeletePOS(transaction?.id)}
+                              canEdit={permissions.canEdit('SALES')}
+                              canDelete={permissions.canDelete('SALES')}
+                              size="sm"
+                              variant="minimal"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center">
+                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No POS transactions for today</h3>
+                    <p className="text-gray-600 mb-4 text-sm">
+                      No Point of Sale transactions for today ({getCurrentDate()}).
+                    </p>
+                    <button
+                      onClick={() => setShowPOS(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                      </svg>
+                      Start First Sale
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         } />
         <Route path="/reports" element={
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Sales Reports</h2>
-                <p className="text-gray-600">Comprehensive sales analytics and insights</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Sales Reports</h2>
+                <p className="text-sm sm:text-base text-gray-600">Comprehensive sales analytics and insights</p>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <select
                   value={reportPeriod}
                   onChange={(e) => setReportPeriod(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm sm:text-base"
                 >
                   <option value="today">Today</option>
                   <option value="yesterday">Yesterday</option>
@@ -1418,7 +1709,7 @@ const Sales: React.FC = () => {
                 <button
                   onClick={handleExportPDF}
                   disabled={salesReportLoading}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 text-sm sm:text-base"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1429,12 +1720,12 @@ const Sales: React.FC = () => {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Sales</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">
                       {salesReportLoading ? (
                         <span className="text-gray-400">Loading...</span>
                       ) : (
@@ -1444,19 +1735,19 @@ const Sales: React.FC = () => {
                       )}
                     </p>
                   </div>
-                  <div className="p-3 bg-green-100 rounded-full">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 sm:p-3 bg-green-100 rounded-full">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                     </svg>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Orders</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">
                       {salesReportLoading ? (
                         <span className="text-gray-400">Loading...</span>
                       ) : (
@@ -1464,19 +1755,19 @@ const Sales: React.FC = () => {
                       )}
                     </p>
                   </div>
-                  <div className="p-3 bg-blue-100 rounded-full">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 sm:p-3 bg-blue-100 rounded-full">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Average Order Value</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">
                       {salesReportLoading ? (
                         <span className="text-gray-400">Loading...</span>
                       ) : (
@@ -1492,19 +1783,19 @@ const Sales: React.FC = () => {
                       )}
                     </p>
                   </div>
-                  <div className="p-3 bg-purple-100 rounded-full">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 sm:p-3 bg-purple-100 rounded-full">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">POS Sales</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">
                       {salesReportLoading ? (
                         <span className="text-gray-400">Loading...</span>
                       ) : (
@@ -1514,8 +1805,8 @@ const Sales: React.FC = () => {
                       )}
                     </p>
                   </div>
-                  <div className="p-3 bg-orange-100 rounded-full">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 sm:p-3 bg-orange-100 rounded-full">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
@@ -1524,9 +1815,9 @@ const Sales: React.FC = () => {
             </div>
 
             {/* Sales Breakdown */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Orders vs POS */}
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Sales Breakdown</h3>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -1565,7 +1856,7 @@ const Sales: React.FC = () => {
               </div>
 
               {/* Payment Methods */}
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods</h3>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -1607,11 +1898,11 @@ const Sales: React.FC = () => {
 
       {/* Add Order Modal */}
       {showAddOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Order</h3>
             <form onSubmit={(e) => { e.preventDefault(); handleAddOrder(); }} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
                   <input
@@ -1635,7 +1926,7 @@ const Sales: React.FC = () => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Order Date *</label>
                   <input
@@ -1655,6 +1946,15 @@ const Sales: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     min={orderForm.orderDate}
                     required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Time</label>
+                  <input
+                    type="time"
+                    value={orderForm.deliveryTime}
+                    onChange={(e) => setOrderForm(prev => ({ ...prev, deliveryTime: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   />
                 </div>
               </div>
@@ -1683,41 +1983,45 @@ const Sales: React.FC = () => {
                 </div>
                 <div className="space-y-3">
                   {orderForm.items.map((item, index) => (
-                    <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <select
-                        value={item.productId}
-                        onChange={(e) => updateOrderItem(index, 'productId', e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      >
-                        <option value="">Select Product</option>
-                        {Array.isArray(products) && products.length > 0 ? products.map((product, productIndex) => (
-                          <option key={product?.id || `product-${productIndex}`} value={product?.id || ''}>
-                            {product?.name || 'Unknown Product'} - ₹{product?.price || 0}/{product?.unit || 'unit'}
-                          </option>
-                        )) : (
-                          <option value="" disabled>No products available</option>
-                        )}
-                      </select>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', Number(e.target.value))}
-                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                        placeholder="Qty"
-                        min="1"
-                      />
-                      <span className="w-20 text-sm text-gray-600">
-                        ₹{(products && Array.isArray(products) ? (products.find(p => p?.id === item.productId)?.price || 0) : 0) * item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeOrderItem(index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                    <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                        <select
+                          value={item.productId}
+                          onChange={(e) => updateOrderItem(index, 'productId', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                        >
+                          <option value="">Select Product</option>
+                          {Array.isArray(products) && products.length > 0 ? products.map((product, productIndex) => (
+                            <option key={product?.id || `product-${productIndex}`} value={product?.id || ''}>
+                              {product?.name || 'Unknown Product'} - ₹{product?.price || 0}/{product?.unit || 'unit'}
+                            </option>
+                          )) : (
+                            <option value="" disabled>No products available</option>
+                          )}
+                        </select>
+                        <div className="flex items-center justify-between sm:justify-start space-x-3">
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateOrderItem(index, 'quantity', Number(e.target.value))}
+                            className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                            placeholder="Qty"
+                            min="1"
+                          />
+                          <span className="text-sm font-medium text-gray-900 min-w-[60px]">
+                            ₹{(products && Array.isArray(products) ? (products.find(p => p?.id === item.productId)?.price || 0) : 0) * item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeOrderItem(index)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                          >
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1759,11 +2063,11 @@ const Sales: React.FC = () => {
 
       {/* Edit Order Modal */}
       {showEditOrder && editingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Order #{editingOrder.orderNumber}</h3>
             <form onSubmit={(e) => { e.preventDefault(); handleUpdateOrder(); }} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
                   <input
@@ -1787,7 +2091,7 @@ const Sales: React.FC = () => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Order Date *</label>
                   <input
@@ -1807,6 +2111,15 @@ const Sales: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     min={orderForm.orderDate}
                     required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Time</label>
+                  <input
+                    type="time"
+                    value={orderForm.deliveryTime}
+                    onChange={(e) => setOrderForm(prev => ({ ...prev, deliveryTime: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   />
                 </div>
               </div>
@@ -1835,41 +2148,45 @@ const Sales: React.FC = () => {
                 </div>
                 <div className="space-y-3">
                   {orderForm.items.map((item, index) => (
-                    <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <select
-                        value={item.productId}
-                        onChange={(e) => updateOrderItem(index, 'productId', e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      >
-                        <option value="">Select Product</option>
-                        {Array.isArray(products) && products.length > 0 ? products.map((product, productIndex) => (
-                          <option key={product?.id || `edit-product-${productIndex}`} value={product?.id || ''}>
-                            {product?.name || 'Unknown Product'} - ₹{product?.price || 0}/{product?.unit || 'unit'}
-                          </option>
-                        )) : (
-                          <option value="" disabled>No products available</option>
-                        )}
-                      </select>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', Number(e.target.value))}
-                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                        placeholder="Qty"
-                        min="1"
-                      />
-                      <span className="w-20 text-sm text-gray-600">
-                        ₹{(products && Array.isArray(products) ? (products.find(p => p?.id === item.productId)?.price || 0) : 0) * item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeOrderItem(index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                    <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                        <select
+                          value={item.productId}
+                          onChange={(e) => updateOrderItem(index, 'productId', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                        >
+                          <option value="">Select Product</option>
+                          {Array.isArray(products) && products.length > 0 ? products.map((product, productIndex) => (
+                            <option key={product?.id || `edit-product-${productIndex}`} value={product?.id || ''}>
+                              {product?.name || 'Unknown Product'} - ₹{product?.price || 0}/{product?.unit || 'unit'}
+                            </option>
+                          )) : (
+                            <option value="" disabled>No products available</option>
+                          )}
+                        </select>
+                        <div className="flex items-center justify-between sm:justify-start space-x-3">
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateOrderItem(index, 'quantity', Number(e.target.value))}
+                            className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                            placeholder="Qty"
+                            min="1"
+                          />
+                          <span className="text-sm font-medium text-gray-900 min-w-[60px]">
+                            ₹{(products && Array.isArray(products) ? (products.find(p => p?.id === item.productId)?.price || 0) : 0) * item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeOrderItem(index)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                          >
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1900,6 +2217,7 @@ const Sales: React.FC = () => {
                       customerAddress: '',
                       orderDate: new Date().toISOString().split('T')[0], // Today
                       deliveryDate: new Date().toISOString().split('T')[0], // Today
+                      deliveryTime: '12:00', // Default delivery time
                       items: []
                     });
                   }}
@@ -1922,8 +2240,8 @@ const Sales: React.FC = () => {
 
       {/* New Sale (POS) Modal */}
       {showPOS && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">New Sale (Point of Sale)</h3>
             <form onSubmit={(e) => { e.preventDefault(); handleAddPOSSale(); }} className="space-y-4">
               <div>
@@ -1946,7 +2264,7 @@ const Sales: React.FC = () => {
                   required
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label>
                   <select
@@ -2062,8 +2380,8 @@ const Sales: React.FC = () => {
 
       {/* Edit POS Transaction Modal */}
       {showEditPOS && editingPOS && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit POS Transaction #{editingPOS.transactionNumber}</h3>
             <form onSubmit={(e) => { e.preventDefault(); handleUpdatePOS(); }} className="space-y-4">
               <div>
@@ -2086,7 +2404,7 @@ const Sales: React.FC = () => {
                   required
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label>
                   <select
